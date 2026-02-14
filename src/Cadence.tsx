@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { generateProgression, generateMelody, generateBassLine, getScaleDegreeFrequency, genres, keys, barOptions, modes, getChordName, type Genre, type Mode, type ProgressionBar, type ScaleDegree, type BarChord, type MelodyBar, type BassBar } from "./cadenceData";
+import { generateProgression, generateMelody, generateBassLine, getScaleDegreeFrequency, genres, keys, barOptions, modes, getChordName, loadPersonalizedMatrices, savePersonalizedMatrices, updateMelodyMatrix, resetMelodyMatrix, type Genre, type Mode, type ProgressionBar, type ScaleDegree, type BarChord, type MelodyBar, type BassBar, type MelodyTransition, type PersonalizedMatrices } from "./cadenceData";
 import { chords as allChords } from "./chordData";
 import { getAudioContext, getMasterOutput, playChord, playStrings, playHammond, playPiano, playMelodyNote, playBassNote } from "./audio";
 import { Visualizer } from "./Visualizer";
@@ -307,6 +307,11 @@ export function Cadence() {
   const [bassEnabled, setBassEnabled] = useState(false);
   const [melody, setMelody] = useState<MelodyBar[]>([]);
   const [bassLine, setBassLine] = useState<BassBar[]>([]);
+  const [visualSeed, setVisualSeed] = useState(0);
+  const [personalizedMatrices, setPersonalizedMatrices] = useState<PersonalizedMatrices>(() => loadPersonalizedMatrices());
+  const [melodyTransitions, setMelodyTransitions] = useState<MelodyTransition[]>([]);
+  const [transitionsPerBar, setTransitionsPerBar] = useState<MelodyTransition[][]>([]);
+  const [feedbackCount, setFeedbackCount] = useState(0); // Track how many times feedback given for current melody
   const playTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playQueueRef = useRef<{ barIndex: number; chordIndex: number }[]>([]);
   const queueIndexRef = useRef(0);
@@ -353,12 +358,20 @@ export function Cadence() {
     const newProgression = generateProgression(selectedKey, selectedGenre, numBars, selectedMode);
     setProgression(newProgression);
 
-    // Generate melody and bass line
-    const newMelody = generateMelody(newProgression, selectedKey, selectedMode, selectedGenre, beatsPerBar);
+    // Generate melody and bass line (melody uses personalized matrices for learning)
+    const { melody: newMelody, transitions, transitionsPerBar: newTransitionsPerBar } = generateMelody(
+      newProgression, selectedKey, selectedMode, selectedGenre, beatsPerBar, personalizedMatrices
+    );
     const newBassLine = generateBassLine(newProgression, selectedKey, selectedMode, selectedGenre, beatsPerBar);
     setMelody(newMelody);
     setBassLine(newBassLine);
-  }, [selectedKey, selectedGenre, numBars, selectedMode, beatsPerBar]);
+    setMelodyTransitions(transitions);
+    setTransitionsPerBar(newTransitionsPerBar);
+    setFeedbackCount(0); // Reset feedback count for new melody
+
+    // Change visualization on each generate
+    setVisualSeed(Math.floor(Math.random() * 1000));
+  }, [selectedKey, selectedGenre, numBars, selectedMode, beatsPerBar, personalizedMatrices]);
 
   const toggleInstrument = useCallback((instrument: Instrument) => {
     setEnabledInstruments(prev => {
@@ -371,6 +384,45 @@ export function Cadence() {
       return next;
     });
   }, []);
+
+  // Melody feedback handlers (bandit learning)
+  const handleMelodyFeedback = useCallback((liked: boolean) => {
+    if (melodyTransitions.length === 0) return;
+
+    const updated = updateMelodyMatrix(selectedGenre, melodyTransitions, liked, personalizedMatrices);
+    setPersonalizedMatrices(updated);
+    savePersonalizedMatrices(updated);
+    setFeedbackCount(prev => prev + 1);
+  }, [melodyTransitions, selectedGenre, personalizedMatrices]);
+
+  // Per-bar feedback: update matrix and regenerate melody immediately
+  const handleBarFeedback = useCallback((barIndex: number, liked: boolean) => {
+    const barTransitions = transitionsPerBar[barIndex];
+    if (!barTransitions || barTransitions.length === 0) return;
+
+    // Update matrix
+    const updated = updateMelodyMatrix(selectedGenre, barTransitions, liked, personalizedMatrices);
+    setPersonalizedMatrices(updated);
+    savePersonalizedMatrices(updated);
+
+    // Regenerate melody with updated matrix
+    const { melody: newMelody, transitions, transitionsPerBar: newTransitionsPerBar } = generateMelody(
+      progression, selectedKey, selectedMode, selectedGenre, beatsPerBar, updated
+    );
+    setMelody(newMelody);
+    setMelodyTransitions(transitions);
+    setTransitionsPerBar(newTransitionsPerBar);
+    setFeedbackCount(prev => prev + 1);
+  }, [transitionsPerBar, selectedGenre, personalizedMatrices, progression, selectedKey, selectedMode, beatsPerBar]);
+
+  const handleResetLearning = useCallback(() => {
+    const updated = resetMelodyMatrix(selectedGenre, personalizedMatrices);
+    setPersonalizedMatrices(updated);
+    savePersonalizedMatrices(updated);
+  }, [selectedGenre, personalizedMatrices]);
+
+  // Check if current genre has been trained
+  const isGenreTrained = personalizedMatrices[selectedGenre] !== null;
 
   // Update a chord in the progression
   const updateChord = useCallback((barIndex: number, chordIndex: number, newChordName: string) => {
@@ -682,7 +734,7 @@ export function Cadence() {
         {/* Visualizer */}
         {progression.length > 0 && (
           <div className="backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-1 mb-6 overflow-hidden">
-            <Visualizer isPlaying={isPlaying} genre={selectedGenre} mode={selectedMode} />
+            <Visualizer isPlaying={isPlaying} genre={selectedGenre} mode={selectedMode} seed={visualSeed} />
           </div>
         )}
 
@@ -820,6 +872,55 @@ export function Cadence() {
                 Bass
               </button>
             </div>
+
+            {/* Melody Learning - Like/Dislike */}
+            {melodyEnabled && melody.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+                <span className="text-zinc-500 text-xs mr-1">Rate melody:</span>
+                <button
+                  onClick={() => handleMelodyFeedback(true)}
+                  className="px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 flex items-center gap-1.5
+                    bg-zinc-800/50 text-zinc-400 hover:bg-green-500/20 hover:text-green-400 active:scale-95"
+                  title="I like this melody - click multiple times for stronger signal"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                  </svg>
+                  Like
+                </button>
+                <button
+                  onClick={() => handleMelodyFeedback(false)}
+                  className="px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 flex items-center gap-1.5
+                    bg-zinc-800/50 text-zinc-400 hover:bg-red-500/20 hover:text-red-400 active:scale-95"
+                  title="I don't like this melody - click multiple times for stronger signal"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                  </svg>
+                  Dislike
+                </button>
+                {feedbackCount > 0 && (
+                  <span className="text-xs text-cyan-400 ml-1">+{feedbackCount}</span>
+                )}
+                {isGenreTrained && (
+                  <div className="flex items-center gap-2 ml-2">
+                    <span className="text-xs text-amber-400 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                      </svg>
+                      Trained
+                    </span>
+                    <button
+                      onClick={handleResetLearning}
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300 underline"
+                      title={`Reset learned preferences for ${selectedGenre}`}
+                    >
+                      reset
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Play/Stop Button */}
             <div className="flex justify-center gap-3 mb-6">
@@ -1004,6 +1105,29 @@ export function Cadence() {
                     {/* Playing indicator */}
                     {isBarPlaying && (
                       <div className="absolute inset-0 rounded-xl border-2 border-cyan-400 animate-pulse pointer-events-none" />
+                    )}
+
+                    {/* Per-bar melody feedback */}
+                    {melodyEnabled && (
+                      <div className="absolute bottom-1 right-1 flex items-center gap-0.5 z-20">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleBarFeedback(barIndex, true); }}
+                          className="w-6 h-6 flex items-center justify-center bg-green-500/20 hover:bg-green-500/40 text-green-400 rounded text-sm font-bold transition-colors"
+                          title="Like this bar's melody - regenerates!"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleBarFeedback(barIndex, false); }}
+                          className="w-6 h-6 flex items-center justify-center bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded text-sm font-bold transition-colors"
+                          title="Dislike this bar's melody - regenerates!"
+                        >
+                          −
+                        </button>
+                        {feedbackCount > 0 && (
+                          <span className="text-[10px] text-cyan-400 font-bold ml-0.5">×{feedbackCount}</span>
+                        )}
+                      </div>
                     )}
                   </div>
                 );

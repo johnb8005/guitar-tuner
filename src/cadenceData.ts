@@ -589,17 +589,140 @@ function getApproachNote(targetDegree: number): number {
     : (targetDegree + 1) % 7;
 }
 
-// Generate melody for a progression
+// ============ MELODY BANDIT LEARNING ============
+
+// Track which transitions were used in a melody
+export type MelodyTransition = [number, number]; // [fromDegree, toDegree]
+
+export type MelodyGenerationResult = {
+  melody: MelodyBar[];
+  transitions: MelodyTransition[];
+  transitionsPerBar: MelodyTransition[][]; // Transitions grouped by bar for per-bar feedback
+};
+
+// Personalized matrices stored per genre
+export type PersonalizedMatrices = Record<Genre, number[][] | null>;
+
+const STORAGE_KEY = "cadence_melody_preferences";
+const LEARNING_RATE = 0.15; // How much each like/dislike affects probabilities
+
+// Load personalized matrices from localStorage
+export function loadPersonalizedMatrices(): PersonalizedMatrices {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.warn("Could not load melody preferences:", e);
+  }
+  return { pop: null, jazz: null, blues: null, rock: null, classical: null };
+}
+
+// Save personalized matrices to localStorage
+export function savePersonalizedMatrices(matrices: PersonalizedMatrices): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(matrices));
+  } catch (e) {
+    console.warn("Could not save melody preferences:", e);
+  }
+}
+
+// Get the matrix to use (personalized or default)
+export function getMelodyMatrix(genre: Genre, personalized: PersonalizedMatrices): number[][] {
+  return personalized[genre] || melodyMatrices[genre];
+}
+
+// Normalize a matrix row to sum to 1
+function normalizeRow(row: number[]): number[] {
+  const sum = row.reduce((a, b) => a + b, 0);
+  if (sum === 0) return row.map(() => 1 / row.length);
+  return row.map(v => v / sum);
+}
+
+// Update matrix based on feedback
+export function updateMelodyMatrix(
+  genre: Genre,
+  transitions: MelodyTransition[],
+  liked: boolean,
+  personalized: PersonalizedMatrices
+): PersonalizedMatrices {
+  // Start with current matrix (personalized or default)
+  const currentMatrix = personalized[genre]
+    ? personalized[genre]!.map(row => [...row])
+    : melodyMatrices[genre].map(row => [...row]);
+
+  // Count transition occurrences
+  const transitionCounts: Record<string, number> = {};
+  for (const [from, to] of transitions) {
+    const key = `${from},${to}`;
+    transitionCounts[key] = (transitionCounts[key] || 0) + 1;
+  }
+
+  // Apply learning
+  const factor = liked ? (1 + LEARNING_RATE) : (1 - LEARNING_RATE * 0.7);
+
+  for (const [key, count] of Object.entries(transitionCounts)) {
+    const [from, to] = key.split(",").map(Number);
+    if (from >= 0 && from < 7 && to >= 0 && to < 7) {
+      // Weight by how often this transition occurred
+      const weight = Math.min(count / 3, 1); // Cap influence
+      const adjustedFactor = 1 + (factor - 1) * weight;
+      currentMatrix[from][to] *= adjustedFactor;
+    }
+  }
+
+  // Normalize all rows
+  for (let i = 0; i < 7; i++) {
+    currentMatrix[i] = normalizeRow(currentMatrix[i]);
+  }
+
+  // Return updated personalized matrices
+  return {
+    ...personalized,
+    [genre]: currentMatrix
+  };
+}
+
+// Reset personalized matrix for a genre
+export function resetMelodyMatrix(
+  genre: Genre,
+  personalized: PersonalizedMatrices
+): PersonalizedMatrices {
+  return {
+    ...personalized,
+    [genre]: null
+  };
+}
+
+// Get training stats for display
+export function getTrainingStats(personalized: PersonalizedMatrices): Record<Genre, boolean> {
+  return {
+    pop: personalized.pop !== null,
+    jazz: personalized.jazz !== null,
+    blues: personalized.blues !== null,
+    rock: personalized.rock !== null,
+    classical: personalized.classical !== null,
+  };
+}
+
+// Generate melody for a progression (with transition tracking)
 export function generateMelody(
   progression: ProgressionBar[],
   key: string,
   mode: Mode,
   genre: Genre,
-  beatsPerBar: number = 4
-): MelodyBar[] {
-  const matrix = melodyMatrices[genre];
+  beatsPerBar: number = 4,
+  personalizedMatrices?: PersonalizedMatrices
+): MelodyGenerationResult {
+  // Use personalized matrix if available, otherwise default
+  const matrix = personalizedMatrices
+    ? getMelodyMatrix(genre, personalizedMatrices)
+    : melodyMatrices[genre];
   const rhythmPatterns = melodyRhythmPatterns[genre];
   const melody: MelodyBar[] = [];
+  const transitions: MelodyTransition[] = []; // Track all transitions
+  const transitionsPerBar: MelodyTransition[][] = []; // Track per bar for granular feedback
 
   // Start on the root of the first chord
   let currentDegree = progression[0]?.degree ?? 0;
@@ -609,6 +732,7 @@ export function generateMelody(
     const bar = progression[barIdx];
     const nextBar = progression[barIdx + 1];
     const barMelody: MelodyNote[] = [];
+    const barTransitions: MelodyTransition[] = []; // Track this bar's transitions
     const chordTones = getChordTones(bar.degree);
     const nextChordTones = nextBar ? getChordTones(nextBar.degree) : chordTones;
 
@@ -633,6 +757,7 @@ export function generateMelody(
       }
 
       // === THE MAGIC: Chord transition handling ===
+      const prevDegree = currentDegree;
 
       if (isDownbeat && barIdx > 0) {
         // BAR START: Resolve to a chord tone via voice leading
@@ -660,6 +785,13 @@ export function generateMelody(
         currentDegree = nextDegree;
       }
 
+      // Track this transition for learning
+      if (prevDegree !== currentDegree) {
+        const transition: MelodyTransition = [prevDegree, currentDegree];
+        transitions.push(transition);
+        barTransitions.push(transition);
+      }
+
       // Occasional octave jumps (but keep it musical)
       if (Math.random() < 0.08) {
         currentOctave = currentOctave === 1 ? 2 : 1;
@@ -674,9 +806,10 @@ export function generateMelody(
     }
 
     melody.push(barMelody);
+    transitionsPerBar.push(barTransitions);
   }
 
-  return melody;
+  return { melody, transitions, transitionsPerBar };
 }
 
 // Generate bass line for a progression
