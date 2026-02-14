@@ -1,68 +1,6 @@
-import { useState } from "react";
-
-type Chord = {
-  name: string;
-  fullName: string;
-  category: "major" | "minor" | "7" | "sus" | "other";
-  baseNote: string;
-  frets: number[]; // -1 = muted, 0 = open, 1-12 = fret
-  fingers: number[];
-  baseFret: number;
-  barres: number[];
-};
-
-const chords: Chord[] = [
-  // C chords
-  { name: "C", fullName: "C Major", category: "major", baseNote: "C", frets: [-1, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0], baseFret: 1, barres: [] },
-  { name: "Cm", fullName: "C Minor", category: "minor", baseNote: "C", frets: [-1, 3, 5, 5, 4, 3], fingers: [0, 1, 3, 4, 2, 1], baseFret: 3, barres: [3] },
-  { name: "C7", fullName: "C Dominant 7", category: "7", baseNote: "C", frets: [-1, 3, 2, 3, 1, 0], fingers: [0, 3, 2, 4, 1, 0], baseFret: 1, barres: [] },
-  { name: "Csus4", fullName: "C Suspended 4", category: "sus", baseNote: "C", frets: [-1, 3, 3, 0, 1, 1], fingers: [0, 3, 4, 0, 1, 1], baseFret: 1, barres: [] },
-
-  // D chords
-  { name: "D", fullName: "D Major", category: "major", baseNote: "D", frets: [-1, -1, 0, 2, 3, 2], fingers: [0, 0, 0, 1, 3, 2], baseFret: 1, barres: [] },
-  { name: "Dm", fullName: "D Minor", category: "minor", baseNote: "D", frets: [-1, -1, 0, 2, 3, 1], fingers: [0, 0, 0, 2, 3, 1], baseFret: 1, barres: [] },
-  { name: "D7", fullName: "D Dominant 7", category: "7", baseNote: "D", frets: [-1, -1, 0, 2, 1, 2], fingers: [0, 0, 0, 2, 1, 3], baseFret: 1, barres: [] },
-  { name: "Dsus4", fullName: "D Suspended 4", category: "sus", baseNote: "D", frets: [-1, -1, 0, 2, 3, 3], fingers: [0, 0, 0, 1, 2, 3], baseFret: 1, barres: [] },
-
-  // E chords
-  { name: "E", fullName: "E Major", category: "major", baseNote: "E", frets: [0, 2, 2, 1, 0, 0], fingers: [0, 2, 3, 1, 0, 0], baseFret: 1, barres: [] },
-  { name: "Em", fullName: "E Minor", category: "minor", baseNote: "E", frets: [0, 2, 2, 0, 0, 0], fingers: [0, 2, 3, 0, 0, 0], baseFret: 1, barres: [] },
-  { name: "E7", fullName: "E Dominant 7", category: "7", baseNote: "E", frets: [0, 2, 0, 1, 0, 0], fingers: [0, 2, 0, 1, 0, 0], baseFret: 1, barres: [] },
-  { name: "Esus4", fullName: "E Suspended 4", category: "sus", baseNote: "E", frets: [0, 2, 2, 2, 0, 0], fingers: [0, 2, 3, 4, 0, 0], baseFret: 1, barres: [] },
-
-  // F chords
-  { name: "F", fullName: "F Major", category: "major", baseNote: "F", frets: [1, 3, 3, 2, 1, 1], fingers: [1, 3, 4, 2, 1, 1], baseFret: 1, barres: [1] },
-  { name: "Fm", fullName: "F Minor", category: "minor", baseNote: "F", frets: [1, 3, 3, 1, 1, 1], fingers: [1, 3, 4, 1, 1, 1], baseFret: 1, barres: [1] },
-  { name: "F7", fullName: "F Dominant 7", category: "7", baseNote: "F", frets: [1, 3, 1, 2, 1, 1], fingers: [1, 3, 1, 2, 1, 1], baseFret: 1, barres: [1] },
-  { name: "Fsus4", fullName: "F Suspended 4", category: "sus", baseNote: "F", frets: [1, 3, 3, 3, 1, 1], fingers: [1, 2, 3, 4, 1, 1], baseFret: 1, barres: [1] },
-
-  // G chords
-  { name: "G", fullName: "G Major", category: "major", baseNote: "G", frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 3], baseFret: 1, barres: [] },
-  { name: "Gm", fullName: "G Minor", category: "minor", baseNote: "G", frets: [3, 5, 5, 3, 3, 3], fingers: [1, 3, 4, 1, 1, 1], baseFret: 3, barres: [3] },
-  { name: "G7", fullName: "G Dominant 7", category: "7", baseNote: "G", frets: [3, 2, 0, 0, 0, 1], fingers: [3, 2, 0, 0, 0, 1], baseFret: 1, barres: [] },
-  { name: "Gsus4", fullName: "G Suspended 4", category: "sus", baseNote: "G", frets: [3, 3, 0, 0, 1, 3], fingers: [2, 3, 0, 0, 1, 4], baseFret: 1, barres: [] },
-
-  // A chords
-  { name: "A", fullName: "A Major", category: "major", baseNote: "A", frets: [-1, 0, 2, 2, 2, 0], fingers: [0, 0, 1, 2, 3, 0], baseFret: 1, barres: [] },
-  { name: "Am", fullName: "A Minor", category: "minor", baseNote: "A", frets: [-1, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0], baseFret: 1, barres: [] },
-  { name: "A7", fullName: "A Dominant 7", category: "7", baseNote: "A", frets: [-1, 0, 2, 0, 2, 0], fingers: [0, 0, 1, 0, 2, 0], baseFret: 1, barres: [] },
-  { name: "Asus4", fullName: "A Suspended 4", category: "sus", baseNote: "A", frets: [-1, 0, 2, 2, 3, 0], fingers: [0, 0, 1, 2, 3, 0], baseFret: 1, barres: [] },
-
-  // B chords
-  { name: "B", fullName: "B Major", category: "major", baseNote: "B", frets: [-1, 2, 4, 4, 4, 2], fingers: [0, 1, 2, 3, 4, 1], baseFret: 2, barres: [2] },
-  { name: "Bm", fullName: "B Minor", category: "minor", baseNote: "B", frets: [-1, 2, 4, 4, 3, 2], fingers: [0, 1, 3, 4, 2, 1], baseFret: 2, barres: [2] },
-  { name: "B7", fullName: "B Dominant 7", category: "7", baseNote: "B", frets: [-1, 2, 1, 2, 0, 2], fingers: [0, 2, 1, 3, 0, 4], baseFret: 1, barres: [] },
-  { name: "Bsus4", fullName: "B Suspended 4", category: "sus", baseNote: "B", frets: [-1, 2, 4, 4, 5, 2], fingers: [0, 1, 2, 3, 4, 1], baseFret: 2, barres: [2] },
-];
-
-const baseNotes = ["C", "D", "E", "F", "G", "A", "B"];
-const categories = [
-  { id: "all", label: "All" },
-  { id: "major", label: "Major" },
-  { id: "minor", label: "Minor" },
-  { id: "7", label: "7th" },
-  { id: "sus", label: "Sus" },
-];
+import { useState, useCallback } from "react";
+import { chords, baseNotes, categories, categoryOrder, type Chord } from "./chordData";
+import { getAudioContext, playChord } from "./audio";
 
 function ChordDiagram({ chord }: { chord: Chord }) {
   const stringCount = 6;
@@ -172,15 +110,24 @@ function ChordDiagram({ chord }: { chord: Chord }) {
 export function Chords() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [noteFilter, setNoteFilter] = useState<string | null>(null);
+  const [openChordsOnly, setOpenChordsOnly] = useState<boolean>(true);
+  const [playingChord, setPlayingChord] = useState<string | null>(null);
+
+  const handlePlayChord = useCallback((chord: Chord) => {
+    const ctx = getAudioContext();
+    playChord(ctx, chord.frets);
+    setPlayingChord(chord.name);
+    setTimeout(() => setPlayingChord(null), 2000);
+  }, []);
 
   const filteredChords = chords.filter((chord) => {
     if (categoryFilter !== "all" && chord.category !== categoryFilter) return false;
     if (noteFilter && chord.baseNote !== noteFilter) return false;
+    if (openChordsOnly && chord.barres.length > 0) return false;
     return true;
   });
 
   // Sort: by base note first, then by category order
-  const categoryOrder = ["major", "minor", "7", "sus", "other"];
   const sortedChords = [...filteredChords].sort((a, b) => {
     const noteCompare = baseNotes.indexOf(a.baseNote) - baseNotes.indexOf(b.baseNote);
     if (noteCompare !== 0) return noteCompare;
@@ -202,6 +149,23 @@ export function Chords() {
 
         {/* Filters */}
         <div className="backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-4 mb-6">
+          {/* Open Chords Toggle */}
+          <div className="flex justify-center mb-4">
+            <button
+              onClick={() => setOpenChordsOnly(!openChordsOnly)}
+              className={`px-6 py-2 rounded-xl font-medium text-sm transition-all duration-300 flex items-center gap-2
+                ${openChordsOnly
+                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg"
+                  : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                }`}
+            >
+              <span className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${openChordsOnly ? "border-white bg-white/20" : "border-zinc-500"}`}>
+                {openChordsOnly && <span className="text-white text-xs">✓</span>}
+              </span>
+              Open Chords Only
+            </button>
+          </div>
+
           {/* Category Filter */}
           <div className="flex flex-wrap justify-center gap-2 mb-4">
             {categories.map((cat) => (
@@ -249,30 +213,46 @@ export function Chords() {
 
         {/* Chords Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {sortedChords.map((chord) => (
-            <div
-              key={chord.name}
-              className="backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-4 hover:bg-white/10 transition-all duration-300 hover:scale-105 cursor-pointer"
-            >
-              <div className="text-center mb-2">
-                <h3 className="text-2xl font-black text-white">{chord.name}</h3>
-                <p className="text-xs text-zinc-500">{chord.fullName}</p>
+          {sortedChords.map((chord) => {
+            const isPlaying = playingChord === chord.name;
+            return (
+              <div
+                key={chord.name}
+                onClick={() => handlePlayChord(chord)}
+                className={`backdrop-blur-xl bg-white/5 rounded-2xl border p-4 transition-all duration-300 cursor-pointer
+                  ${isPlaying
+                    ? "bg-amber-500/20 border-amber-500/50 scale-105 shadow-lg shadow-amber-500/20"
+                    : "border-white/10 hover:bg-white/10 hover:scale-105"
+                  }`}
+              >
+                <div className="text-center mb-2">
+                  <h3 className={`text-2xl font-black transition-colors ${isPlaying ? "text-amber-400" : "text-white"}`}>
+                    {chord.name}
+                  </h3>
+                  <p className="text-xs text-zinc-500">{chord.fullName}</p>
+                </div>
+                <ChordDiagram chord={chord} />
               </div>
-              <ChordDiagram chord={chord} />
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Empty State */}
         {sortedChords.length === 0 && (
           <div className="text-center py-12">
             <p className="text-zinc-500">No chords found with current filters</p>
+            <button
+              onClick={() => setOpenChordsOnly(false)}
+              className="mt-4 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
+            >
+              Show barre chords too
+            </button>
           </div>
         )}
 
         {/* Footer */}
         <p className="text-center text-zinc-600 text-xs mt-8 tracking-wide">
-          Click on a chord to hear it (coming soon)
+          {sortedChords.length} chords • Click to play
         </p>
       </div>
     </div>
