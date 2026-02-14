@@ -419,7 +419,7 @@ function WaveformVisualizer({ analyser }: { analyser: AnalyserNode | null }) {
   );
 }
 
-export function App() {
+export function Tuner() {
   const [selectedTuning, setSelectedTuning] = useState<string>("guitar");
   const [playingString, setPlayingString] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
@@ -547,17 +547,8 @@ export function App() {
   const isInTune = detectedNote ? Math.abs(detectedNote.cents) <= 5 : false;
 
   return (
-    <div className="min-h-screen w-full relative overflow-hidden">
-      {/* Animated background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,191,36,0.1),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(168,85,247,0.1),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(34,197,94,0.05),transparent_50%)]" />
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-4 sm:p-6">
-        <div className="w-full max-w-lg">
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 sm:p-6">
+      <div className="w-full max-w-lg">
 
           {/* Header */}
           <div className="text-center mb-8">
@@ -790,14 +781,11 @@ export function App() {
             </div>
           </div>
 
-          {/* Footer */}
-          <p className="text-center text-zinc-600 text-xs mt-6 tracking-wide">
-            {isListening ? "Play one string at a time for best accuracy" : "Click a string or start tuning"}
-          </p>
-        </div>
+        {/* Footer */}
+        <p className="text-center text-zinc-600 text-xs mt-6 tracking-wide">
+          {isListening ? "Play one string at a time for best accuracy" : "Click a string or start tuning"}
+        </p>
       </div>
     </div>
   );
 }
-
-export default App;

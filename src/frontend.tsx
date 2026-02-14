@@ -1,12 +1,21 @@
-/**
- * This file is the entry point for the React app, it sets up the root
- * element and renders the App component to the DOM.
- *
- * It is included in `src/index.html`.
- */
-
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Layout } from "./Layout";
+import { Tuner } from "./Tuner";
+import { Chords } from "./Chords";
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Tuner />} />
+          <Route path="/chords" element={<Chords />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
 
 function start() {
   const root = createRoot(document.getElementById("root")!);
