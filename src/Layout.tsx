@@ -21,7 +21,7 @@ export function Layout() {
             <NavLink
               to="/"
               className={({ isActive }) =>
-                `px-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 ${
+                `px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 ${
                   isActive
                     ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg"
                     : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -33,7 +33,7 @@ export function Layout() {
             <NavLink
               to="/chords"
               className={({ isActive }) =>
-                `px-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 ${
+                `px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 ${
                   isActive
                     ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg"
                     : "text-zinc-400 hover:text-white hover:bg-white/5"
@@ -41,6 +41,18 @@ export function Layout() {
               }
             >
               Chords
+            </NavLink>
+            <NavLink
+              to="/cadence"
+              className={({ isActive }) =>
+                `px-3 py-2 rounded-lg font-medium text-sm transition-all duration-300 ${
+                  isActive
+                    ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg"
+                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                }`
+              }
+            >
+              Cadence
             </NavLink>
           </div>
         </div>

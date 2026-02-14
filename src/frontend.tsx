@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./Layout";
 import { Tuner } from "./Tuner";
 import { Chords } from "./Chords";
+import { Cadence } from "./Cadence";
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Tuner />} />
           <Route path="/chords" element={<Chords />} />
+          <Route path="/cadence" element={<Cadence />} />
         </Route>
       </Routes>
     </BrowserRouter>
