@@ -1,23 +1,88 @@
-import { useState, useCallback, useRef } from "react";
-import { generateProgression, genres, keys, barOptions, type Genre } from "./cadenceData";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { generateProgression, genres, keys, barOptions, modes, getChordName, type Genre, type Mode, type ProgressionBar, type ScaleDegree, type BarChord } from "./cadenceData";
 import { chords as allChords } from "./chordData";
-import { getAudioContext, playChord } from "./audio";
+import { getAudioContext, playChord, playStrings, playHammond, playPiano } from "./audio";
 
-type ProgressionChord = {
-  degree: number;
-  chordName: string;
-  degreeName: string;
-};
+export type Instrument = "guitar" | "strings" | "hammond" | "piano";
+
+// Position for editing: which bar and chord within that bar
+type EditingPosition = { bar: number; chord: number } | null;
+
+// Track which chord is playing: [barIndex, chordIndex within bar]
+type PlayingPosition = { bar: number; chord: number } | null;
+
+// Play a percussion click sound at a specific time (woodblock-style)
+function playClickAt(ctx: AudioContext, time: number, accent: boolean = false) {
+  // Create a short noise burst filtered to sound like a woodblock/click
+  const bufferSize = Math.floor(ctx.sampleRate * 0.02); // 20ms
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  // Fill with noise
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+
+  // Bandpass filter for woody tone
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = accent ? 3500 : 2500;
+  filter.Q.value = 5;
+
+  // Sharp envelope for percussive attack
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(accent ? 0.6 : 0.4, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.015);
+
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+
+  source.start(time);
+  source.stop(time + 0.02);
+}
+
+// Schedule multiple clicks for a bar/segment
+function scheduleClicks(ctx: AudioContext, duration: number, beatsPerBar: number, isFirstBeat: boolean) {
+  const now = ctx.currentTime;
+  const beatDuration = duration / 1000 / beatsPerBar;
+
+  for (let i = 0; i < beatsPerBar; i++) {
+    const isAccent = i === 0 && isFirstBeat;
+    playClickAt(ctx, now + i * beatDuration, isAccent);
+  }
+}
 
 export function Cadence() {
   const [selectedKey, setSelectedKey] = useState("C");
   const [selectedGenre, setSelectedGenre] = useState<Genre>("pop");
+  const [selectedMode, setSelectedMode] = useState<Mode>("ionian");
   const [numBars, setNumBars] = useState(4);
-  const [progression, setProgression] = useState<ProgressionChord[]>([]);
-  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const [progression, setProgression] = useState<ProgressionBar[]>([]);
+  const [playingPosition, setPlayingPosition] = useState<PlayingPosition>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [bpm, setBpm] = useState(100);
+  const [metronomeEnabled, setMetronomeEnabled] = useState(false);
+  const [loopEnabled, setLoopEnabled] = useState(false);
+  const [beatsPerBar, setBeatsPerBar] = useState(4);
+  const [enabledInstruments, setEnabledInstruments] = useState<Set<Instrument>>(new Set(["guitar"]));
+  const [editingPosition, setEditingPosition] = useState<EditingPosition>(null);
   const playTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const currentIndexRef = useRef(0);
+  const playQueueRef = useRef<{ barIndex: number; chordIndex: number }[]>([]);
+  const queueIndexRef = useRef(0);
+  const loopEnabledRef = useRef(false);
+  const metronomeEnabledRef = useRef(false);
+  const bpmRef = useRef(100);
+  const beatsPerBarRef = useRef(4);
+
+  // Keep refs in sync with state
+  useEffect(() => { loopEnabledRef.current = loopEnabled; }, [loopEnabled]);
+  useEffect(() => { metronomeEnabledRef.current = metronomeEnabled; }, [metronomeEnabled]);
+  useEffect(() => { bpmRef.current = bpm; }, [bpm]);
+  useEffect(() => { beatsPerBarRef.current = beatsPerBar; }, [beatsPerBar]);
 
   const handleGenerate = useCallback(() => {
     // Stop any current playback
@@ -26,25 +91,102 @@ export function Cadence() {
       playTimeoutRef.current = null;
     }
     setIsPlaying(false);
-    setPlayingIndex(null);
+    setPlayingPosition(null);
 
-    const newProgression = generateProgression(selectedKey, selectedGenre, numBars);
+    const newProgression = generateProgression(selectedKey, selectedGenre, numBars, selectedMode);
     setProgression(newProgression);
-  }, [selectedKey, selectedGenre, numBars]);
+  }, [selectedKey, selectedGenre, numBars, selectedMode]);
 
-  const playChordByName = useCallback((chordName: string) => {
-    // Find the chord in our chord library
-    const chord = allChords.find(c => c.name === chordName);
-    if (chord) {
-      const ctx = getAudioContext();
-      playChord(ctx, chord.frets);
-    }
+  const toggleInstrument = useCallback((instrument: Instrument) => {
+    setEnabledInstruments(prev => {
+      const next = new Set(prev);
+      if (next.has(instrument)) {
+        next.delete(instrument);
+      } else {
+        next.add(instrument);
+      }
+      return next;
+    });
   }, []);
 
-  const handlePlaySingle = useCallback((chordName: string, index: number) => {
+  // Update a chord in the progression
+  const updateChord = useCallback((barIndex: number, chordIndex: number, newChordName: string) => {
+    setProgression(prev => {
+      const updated = [...prev];
+      const bar = { ...updated[barIndex] };
+      const chords = [...bar.chords];
+      chords[chordIndex] = {
+        ...chords[chordIndex],
+        chordName: newChordName,
+        degreeName: chords[chordIndex].degreeName // keep original degree name
+      };
+      bar.chords = chords;
+      updated[barIndex] = bar;
+      return updated;
+    });
+    setEditingPosition(null);
+  }, []);
+
+  // Add a new bar at the end
+  const addBar = useCallback(() => {
+    const defaultChordName = getChordName(selectedKey, 0 as ScaleDegree, false);
+    const newBar: ProgressionBar = {
+      degree: 0 as ScaleDegree,
+      chords: [{ chordName: defaultChordName, degreeName: "I" }]
+    };
+    setProgression(prev => [...prev, newBar]);
+  }, [selectedKey]);
+
+  // Remove a bar
+  const removeBar = useCallback((barIndex: number) => {
+    setProgression(prev => prev.filter((_, i) => i !== barIndex));
+    setEditingPosition(null);
+  }, []);
+
+  // Split a bar into two chords or merge back to one
+  const toggleSplitBar = useCallback((barIndex: number) => {
+    setProgression(prev => {
+      const updated = [...prev];
+      const bar = { ...updated[barIndex] };
+      if (bar.chords.length === 1) {
+        // Split: duplicate the chord
+        bar.chords = [bar.chords[0], { ...bar.chords[0] }];
+      } else {
+        // Merge: keep only first chord
+        bar.chords = [bar.chords[0]];
+      }
+      updated[barIndex] = bar;
+      return updated;
+    });
+  }, []);
+
+  const playChordByName = useCallback((chordName: string, duration: number = 2.5) => {
+    const ctx = getAudioContext();
+
+    // Play guitar if enabled (uses chord library for fingering)
+    if (enabledInstruments.has("guitar")) {
+      const chord = allChords.find(c => c.name === chordName);
+      if (chord) {
+        playChord(ctx, chord.frets);
+      }
+    }
+
+    // Play synth instruments (use chord name directly)
+    if (enabledInstruments.has("strings")) {
+      playStrings(ctx, chordName, duration);
+    }
+    if (enabledInstruments.has("hammond")) {
+      playHammond(ctx, chordName, duration);
+    }
+    if (enabledInstruments.has("piano")) {
+      playPiano(ctx, chordName, duration);
+    }
+  }, [enabledInstruments]);
+
+  const handlePlaySingle = useCallback((chordName: string, barIndex: number, chordIndex: number) => {
     playChordByName(chordName);
-    setPlayingIndex(index);
-    setTimeout(() => setPlayingIndex(null), 1500);
+    setPlayingPosition({ bar: barIndex, chord: chordIndex });
+    setTimeout(() => setPlayingPosition(null), 1000);
   }, [playChordByName]);
 
   const handlePlayAll = useCallback(() => {
@@ -55,23 +197,56 @@ export function Cadence() {
       clearTimeout(playTimeoutRef.current);
     }
 
+    // Build a queue of all chords to play
+    const queue: { barIndex: number; chordIndex: number }[] = [];
+    progression.forEach((bar, barIndex) => {
+      bar.chords.forEach((_, chordIndex) => {
+        queue.push({ barIndex, chordIndex });
+      });
+    });
+
+    playQueueRef.current = queue;
+    queueIndexRef.current = 0;
     setIsPlaying(true);
-    currentIndexRef.current = 0;
 
     const playNext = () => {
-      const index = currentIndexRef.current;
-      if (index >= progression.length) {
+      const idx = queueIndexRef.current;
+      if (idx >= playQueueRef.current.length) {
+        // Check if loop is enabled (use ref for current value)
+        if (loopEnabledRef.current) {
+          queueIndexRef.current = 0;
+          playNext();
+          return;
+        }
         setIsPlaying(false);
-        setPlayingIndex(null);
+        setPlayingPosition(null);
         return;
       }
 
-      const chord = progression[index];
-      playChordByName(chord.chordName);
-      setPlayingIndex(index);
+      const { barIndex, chordIndex } = playQueueRef.current[idx];
+      const bar = progression[barIndex];
+      const chord = bar.chords[chordIndex];
 
-      currentIndexRef.current = index + 1;
-      playTimeoutRef.current = setTimeout(playNext, 1500); // 1.5s per bar (~100 BPM feel)
+      // Timing based on BPM: beatsPerBar beats per bar
+      const currentBpm = bpmRef.current;
+      const currentBeatsPerBar = beatsPerBarRef.current;
+      const timePerBar = (60 / currentBpm) * currentBeatsPerBar * 1000;
+      const duration = bar.chords.length > 1 ? timePerBar / 2 : timePerBar;
+
+      // Schedule metronome clicks for this segment
+      if (metronomeEnabledRef.current) {
+        const ctx = getAudioContext();
+        const beatsInSegment = bar.chords.length > 1 ? Math.ceil(currentBeatsPerBar / 2) : currentBeatsPerBar;
+        const isFirstBeatOfBar = chordIndex === 0;
+        scheduleClicks(ctx, duration, beatsInSegment, isFirstBeatOfBar);
+      }
+
+      playChordByName(chord.chordName, duration / 1000);
+      setPlayingPosition({ bar: barIndex, chord: chordIndex });
+
+      queueIndexRef.current = idx + 1;
+
+      playTimeoutRef.current = setTimeout(playNext, duration);
     };
 
     playNext();
@@ -83,7 +258,7 @@ export function Cadence() {
       playTimeoutRef.current = null;
     }
     setIsPlaying(false);
-    setPlayingIndex(null);
+    setPlayingPosition(null);
   }, []);
 
   const selectedGenreConfig = genres.find(g => g.id === selectedGenre);
@@ -103,7 +278,7 @@ export function Cadence() {
 
         {/* Controls */}
         <div className="backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-4 sm:p-6 mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             {/* Key Selector */}
             <div>
               <label className="block text-zinc-400 text-sm mb-2 font-medium">Key</label>
@@ -124,6 +299,29 @@ export function Cadence() {
               </div>
             </div>
 
+            {/* Mode Selector */}
+            <div>
+              <label className="block text-zinc-400 text-sm mb-2 font-medium">Mode</label>
+              <div className="grid grid-cols-2 gap-1">
+                {modes.map((mode) => (
+                  <button
+                    key={mode.id}
+                    onClick={() => setSelectedMode(mode.id)}
+                    className={`px-2 py-1.5 rounded-lg text-left text-xs transition-all duration-200
+                      ${selectedMode === mode.id
+                        ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-lg"
+                        : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                      }`}
+                  >
+                    <span className="font-medium">{mode.name}</span>
+                    <span className="block text-[10px] opacity-70">{mode.character}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             {/* Genre Selector */}
             <div>
               <label className="block text-zinc-400 text-sm mb-2 font-medium">Genre</label>
@@ -185,7 +383,91 @@ export function Cadence() {
         {/* Progression Display */}
         {progression.length > 0 && (
           <div className="backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-4 sm:p-6 mb-6">
-            {/* Play Controls */}
+            {/* Playback Controls */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
+              {/* BPM Slider */}
+              <div className="flex items-center gap-3 flex-1">
+                <span className="text-zinc-400 text-sm font-medium w-12">BPM</span>
+                <input
+                  type="range"
+                  min="40"
+                  max="200"
+                  value={bpm}
+                  onChange={(e) => setBpm(Number(e.target.value))}
+                  className="flex-1 h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                />
+                <span className="text-white font-mono text-sm w-10 text-right">{bpm}</span>
+              </div>
+
+              {/* Metronome Toggle + Beats Selector */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+                  className={`px-3 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center gap-2
+                    ${metronomeEnabled
+                      ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg"
+                      : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                    }`}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Click
+                </button>
+                {metronomeEnabled && (
+                  <div className="flex bg-zinc-800/50 rounded-lg p-0.5">
+                    {[2, 3, 4, 6].map((beats) => (
+                      <button
+                        key={beats}
+                        onClick={() => setBeatsPerBar(beats)}
+                        className={`w-7 h-7 rounded text-xs font-bold transition-all
+                          ${beatsPerBar === beats
+                            ? "bg-amber-500 text-white"
+                            : "text-zinc-400 hover:text-white"
+                          }`}
+                      >
+                        {beats}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Loop Toggle */}
+              <button
+                onClick={() => setLoopEnabled(!loopEnabled)}
+                className={`px-3 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center gap-2
+                  ${loopEnabled
+                    ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-lg"
+                    : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                  }`}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Loop
+              </button>
+            </div>
+
+            {/* Instrument Toggles */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+              <span className="text-zinc-500 text-xs mr-1">Sounds:</span>
+              {(["guitar", "piano", "strings", "hammond"] as Instrument[]).map((instrument) => (
+                <button
+                  key={instrument}
+                  onClick={() => toggleInstrument(instrument)}
+                  className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200
+                    ${enabledInstruments.has(instrument)
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
+                      : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
+                    }`}
+                >
+                  {instrument.charAt(0).toUpperCase() + instrument.slice(1)}
+                </button>
+              ))}
+            </div>
+
+            {/* Play/Stop Button */}
             <div className="flex justify-center gap-3 mb-6">
               {!isPlaying ? (
                 <button
@@ -215,52 +497,187 @@ export function Cadence() {
             {/* Info */}
             <div className="text-center mb-4">
               <span className="text-zinc-400 text-sm">
-                {selectedKey} {selectedGenreConfig?.name} • {numBars} bars
+                {selectedKey} {modes.find(m => m.id === selectedMode)?.name} • {selectedGenreConfig?.name} • {numBars} bars
               </span>
             </div>
 
             {/* Chord Grid */}
             <div className="grid grid-cols-4 gap-3">
-              {progression.map((chord, index) => {
-                const isCurrentlyPlaying = playingIndex === index;
+              {progression.map((bar, barIndex) => {
+                const isSplitBar = bar.chords.length > 1;
+                const isBarPlaying = playingPosition?.bar === barIndex;
+
                 return (
-                  <button
-                    key={index}
-                    onClick={() => handlePlaySingle(chord.chordName, index)}
-                    className={`relative p-4 rounded-xl transition-all duration-300 cursor-pointer
-                      ${isCurrentlyPlaying
-                        ? "bg-gradient-to-br from-cyan-500/30 to-blue-500/30 border-2 border-cyan-400 scale-105 shadow-lg shadow-cyan-500/30"
-                        : "bg-zinc-800/50 border border-zinc-700/50 hover:bg-zinc-700/50 hover:scale-102"
+                  <div
+                    key={barIndex}
+                    className={`relative rounded-xl transition-all duration-300 overflow-visible group
+                      ${isBarPlaying
+                        ? "scale-105 shadow-lg shadow-cyan-500/30"
+                        : ""
                       }`}
                   >
-                    {/* Bar number */}
-                    <span className="absolute top-1 left-2 text-xs text-zinc-600">{index + 1}</span>
-
-                    {/* Chord name */}
-                    <div className={`text-2xl font-black transition-colors ${isCurrentlyPlaying ? "text-cyan-400" : "text-white"}`}>
-                      {chord.chordName}
+                    {/* Bar number & controls */}
+                    <div className="absolute -top-1 left-1 right-1 flex justify-between items-center z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-[10px] text-zinc-500 bg-zinc-900/80 px-1 rounded">{barIndex + 1}</span>
+                      {!isPlaying && (
+                        <div className="flex gap-0.5">
+                          <button
+                            onClick={() => toggleSplitBar(barIndex)}
+                            className="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-white bg-zinc-900/80 rounded text-[10px]"
+                            title={isSplitBar ? "Merge" : "Split"}
+                          >
+                            {isSplitBar ? "1" : "2"}
+                          </button>
+                          {progression.length > 1 && (
+                            <button
+                              onClick={() => removeBar(barIndex)}
+                              className="w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-red-400 bg-zinc-900/80 rounded"
+                              title="Remove bar"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Roman numeral */}
-                    <div className="text-sm text-zinc-500 mt-1">
-                      {chord.degreeName}
-                    </div>
+                    {isSplitBar ? (
+                      /* Split bar - two chords */
+                      <div className="flex h-full">
+                        {bar.chords.map((chord, chordIndex) => {
+                          const isChordPlaying = isBarPlaying && playingPosition?.chord === chordIndex;
+                          const isEditing = editingPosition?.bar === barIndex && editingPosition?.chord === chordIndex;
+                          return (
+                            <div key={chordIndex} className={`flex-1 relative ${chordIndex === 0 ? "" : ""}`}>
+                              <button
+                                onClick={() => {
+                                  if (isPlaying) {
+                                    handlePlaySingle(chord.chordName, barIndex, chordIndex);
+                                  } else {
+                                    setEditingPosition(isEditing ? null : { bar: barIndex, chord: chordIndex });
+                                  }
+                                }}
+                                className={`w-full py-3 px-1 transition-all duration-300 cursor-pointer border flex flex-col items-center justify-center min-h-[70px]
+                                  ${isChordPlaying
+                                    ? "bg-gradient-to-br from-cyan-500/30 to-blue-500/30 border-cyan-400"
+                                    : isEditing
+                                    ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-400"
+                                    : "bg-zinc-800/50 border-zinc-700/50 hover:bg-zinc-700/50"
+                                  }
+                                  ${chordIndex === 0 ? "rounded-l-xl border-r-0" : "rounded-r-xl"}`}
+                              >
+                                <div className={`text-sm sm:text-base font-black transition-colors truncate max-w-full px-1 ${isChordPlaying ? "text-cyan-400" : isEditing ? "text-amber-400" : "text-white"}`}>
+                                  {chord.chordName}
+                                </div>
+                                <div className="text-[10px] sm:text-xs text-zinc-500 truncate max-w-full">
+                                  {chord.degreeName}
+                                </div>
+                              </button>
+                              {/* Chord selector popup */}
+                              {isEditing && (
+                                <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-2 max-h-48 overflow-y-auto">
+                                  <div className="grid grid-cols-4 gap-1">
+                                    {allChords.slice(0, 40).map(c => (
+                                      <button
+                                        key={c.name}
+                                        onClick={() => updateChord(barIndex, chordIndex, c.name)}
+                                        className={`px-1.5 py-1 text-xs rounded transition-colors ${
+                                          c.name === chord.chordName
+                                            ? "bg-amber-500 text-white"
+                                            : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                                        }`}
+                                      >
+                                        {c.name}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* Single chord bar */
+                      <div className="relative">
+                        <button
+                          onClick={() => {
+                            if (isPlaying) {
+                              handlePlaySingle(bar.chords[0].chordName, barIndex, 0);
+                            } else {
+                              const isEditing = editingPosition?.bar === barIndex && editingPosition?.chord === 0;
+                              setEditingPosition(isEditing ? null : { bar: barIndex, chord: 0 });
+                            }
+                          }}
+                          className={`w-full p-4 rounded-xl transition-all duration-300 cursor-pointer border min-h-[70px] flex flex-col items-center justify-center
+                            ${isBarPlaying
+                              ? "bg-gradient-to-br from-cyan-500/30 to-blue-500/30 border-cyan-400"
+                              : editingPosition?.bar === barIndex && editingPosition?.chord === 0
+                              ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-400"
+                              : "bg-zinc-800/50 border-zinc-700/50 hover:bg-zinc-700/50"
+                            }`}
+                        >
+                          <div className={`text-xl sm:text-2xl font-black transition-colors ${isBarPlaying ? "text-cyan-400" : editingPosition?.bar === barIndex ? "text-amber-400" : "text-white"}`}>
+                            {bar.chords[0].chordName}
+                          </div>
+                          <div className="text-xs sm:text-sm text-zinc-500">
+                            {bar.chords[0].degreeName}
+                          </div>
+                        </button>
+                        {/* Chord selector popup */}
+                        {editingPosition?.bar === barIndex && editingPosition?.chord === 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-2 max-h-48 overflow-y-auto">
+                            <div className="grid grid-cols-4 gap-1">
+                              {allChords.slice(0, 40).map(c => (
+                                <button
+                                  key={c.name}
+                                  onClick={() => updateChord(barIndex, 0, c.name)}
+                                  className={`px-1.5 py-1 text-xs rounded transition-colors ${
+                                    c.name === bar.chords[0].chordName
+                                      ? "bg-amber-500 text-white"
+                                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                                  }`}
+                                >
+                                  {c.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Playing indicator */}
-                    {isCurrentlyPlaying && (
-                      <div className="absolute inset-0 rounded-xl border-2 border-cyan-400 animate-pulse" />
+                    {isBarPlaying && (
+                      <div className="absolute inset-0 rounded-xl border-2 border-cyan-400 animate-pulse pointer-events-none" />
                     )}
-                  </button>
+                  </div>
                 );
               })}
+
+              {/* Add bar button */}
+              {!isPlaying && (
+                <button
+                  onClick={addBar}
+                  className="min-h-[70px] rounded-xl border-2 border-dashed border-zinc-700 flex items-center justify-center text-zinc-500 hover:text-white hover:border-zinc-500 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              )}
             </div>
 
             {/* Progression as text */}
             <div className="mt-6 text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800/50 rounded-lg">
+              <div className="inline-flex flex-wrap items-center justify-center gap-2 px-4 py-2 bg-zinc-800/50 rounded-lg">
                 <span className="text-zinc-500 text-sm">Progression:</span>
                 <span className="text-white font-mono text-sm">
-                  {progression.map(c => c.degreeName).join(" → ")}
+                  {progression.map(bar =>
+                    bar.chords.length > 1
+                      ? `(${bar.chords.map(c => c.degreeName).join("→")})`
+                      : bar.chords[0].degreeName
+                  ).join(" → ")}
                 </span>
               </div>
             </div>

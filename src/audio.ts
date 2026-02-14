@@ -103,3 +103,144 @@ export function getAudioContext(): AudioContext {
   }
   return audioContext;
 }
+
+// Note frequencies for synth instruments (C3 = middle C area)
+const noteFrequencies: Record<string, number> = {
+  "C": 130.81, "C#": 138.59, "D": 146.83, "D#": 155.56, "E": 164.81,
+  "F": 174.61, "F#": 185.00, "G": 196.00, "G#": 207.65, "A": 220.00,
+  "A#": 233.08, "B": 246.94
+};
+
+// Parse chord name to get root note and type
+function parseChordName(name: string): { root: string; type: string } {
+  const match = name.match(/^([A-G]#?)(.*)$/);
+  if (!match) return { root: "C", type: "" };
+  return { root: match[1], type: match[2] };
+}
+
+// Get frequencies for chord notes
+export function getChordFrequencies(chordName: string): number[] {
+  const { root, type } = parseChordName(chordName);
+  const rootFreq = noteFrequencies[root] || 130.81;
+
+  // Intervals in semitones for different chord types
+  let intervals: number[];
+  if (type.includes("dim")) {
+    intervals = [0, 3, 6]; // diminished
+  } else if (type.includes("m7")) {
+    intervals = [0, 3, 7, 10]; // minor 7
+  } else if (type.includes("maj7")) {
+    intervals = [0, 4, 7, 11]; // major 7
+  } else if (type.includes("7")) {
+    intervals = [0, 4, 7, 10]; // dominant 7
+  } else if (type.includes("m")) {
+    intervals = [0, 3, 7]; // minor
+  } else if (type.includes("sus2")) {
+    intervals = [0, 2, 7]; // sus2
+  } else if (type.includes("sus4")) {
+    intervals = [0, 5, 7]; // sus4
+  } else {
+    intervals = [0, 4, 7]; // major
+  }
+
+  return intervals.map(i => rootFreq * Math.pow(2, i / 12));
+}
+
+// Strings pad sound - filtered sawtooth with slow attack
+export function playStrings(ctx: AudioContext, chordName: string, duration: number = 2.5): void {
+  const frequencies = getChordFrequencies(chordName);
+  const now = ctx.currentTime;
+
+  frequencies.forEach((freq, i) => {
+    // Two detuned oscillators for richness
+    [-4, 4].forEach(detune => {
+      const osc = ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.value = freq;
+      osc.detune.value = detune;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 800;
+      filter.Q.value = 1;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.3); // slow attack
+      gain.gain.setValueAtTime(0.08, now + duration - 0.5);
+      gain.gain.linearRampToValueAtTime(0, now + duration);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + duration);
+    });
+  });
+}
+
+// Hammond organ sound - multiple harmonics (drawbars)
+export function playHammond(ctx: AudioContext, chordName: string, duration: number = 2.5): void {
+  const frequencies = getChordFrequencies(chordName);
+  const now = ctx.currentTime;
+
+  // Hammond drawbar harmonics: fundamental, 2nd, 3rd, 4th, etc.
+  const drawbars = [1, 2, 3, 4, 6, 8];
+  const drawbarLevels = [0.8, 0.6, 0.4, 0.3, 0.2, 0.15];
+
+  frequencies.forEach(freq => {
+    drawbars.forEach((harmonic, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq * harmonic;
+
+      const gain = ctx.createGain();
+      const level = (drawbarLevels[i] || 0.1) * 0.06;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(level, now + 0.02); // quick attack
+      gain.gain.setValueAtTime(level, now + duration - 0.1);
+      gain.gain.linearRampToValueAtTime(0, now + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + duration);
+    });
+  });
+}
+
+// Piano sound - percussive with harmonics
+export function playPiano(ctx: AudioContext, chordName: string, duration: number = 2.5): void {
+  const frequencies = getChordFrequencies(chordName);
+  const now = ctx.currentTime;
+
+  frequencies.forEach((freq, noteIndex) => {
+    // Multiple harmonics with decreasing amplitude
+    [1, 2, 3, 4, 5].forEach((harmonic, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = freq * harmonic;
+
+      // Slight inharmonicity for realism
+      if (harmonic > 1) {
+        osc.detune.value = harmonic * 2;
+      }
+
+      const gain = ctx.createGain();
+      const baseLevel = 0.12 / Math.pow(harmonic, 0.7);
+
+      // Percussive envelope
+      gain.gain.setValueAtTime(baseLevel, now + noteIndex * 0.02);
+      gain.gain.exponentialRampToValueAtTime(baseLevel * 0.3, now + noteIndex * 0.02 + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + noteIndex * 0.02);
+      osc.stop(now + duration);
+    });
+  });
+}
