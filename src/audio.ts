@@ -105,11 +105,17 @@ export function getAudioContext(): AudioContext {
 }
 
 // Note frequencies for synth instruments (C3 = middle C area)
-const noteFrequencies: Record<string, number> = {
+export const noteFrequencies: Record<string, number> = {
   "C": 130.81, "C#": 138.59, "D": 146.83, "D#": 155.56, "E": 164.81,
   "F": 174.61, "F#": 185.00, "G": 196.00, "G#": 207.65, "A": 220.00,
   "A#": 233.08, "B": 246.94
 };
+
+// Get frequency for a note name with octave offset (0 = C3, 1 = C4, etc.)
+export function getNoteFrequency(noteName: string, octaveOffset: number = 0): number {
+  const baseFreq = noteFrequencies[noteName] || 130.81;
+  return baseFreq * Math.pow(2, octaveOffset);
+}
 
 // Parse chord name to get root note and type
 function parseChordName(name: string): { root: string; type: string } {
@@ -243,4 +249,106 @@ export function playPiano(ctx: AudioContext, chordName: string, duration: number
       osc.stop(now + duration);
     });
   });
+}
+
+// ============ MELODY SYNTH ============
+// Sine wave with slight vibrato for clear, singing melody
+
+export function playMelodyNote(
+  ctx: AudioContext,
+  frequency: number,
+  duration: number,
+  startTime: number,
+  volume: number = 0.2
+): void {
+  const osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.value = frequency;
+
+  // Slight vibrato for expressiveness
+  const vibrato = ctx.createOscillator();
+  const vibratoGain = ctx.createGain();
+  vibrato.frequency.value = 5; // 5Hz vibrato rate
+  vibratoGain.gain.value = 3; // 3 cents depth
+  vibrato.connect(vibratoGain);
+  vibratoGain.connect(osc.detune);
+  vibrato.start(startTime);
+  vibrato.stop(startTime + duration);
+
+  // Smooth envelope
+  const gain = ctx.createGain();
+  const attackTime = Math.min(0.05, duration * 0.1);
+  const releaseTime = Math.min(0.1, duration * 0.2);
+
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(volume, startTime + attackTime);
+  gain.gain.setValueAtTime(volume, startTime + duration - releaseTime);
+  gain.gain.linearRampToValueAtTime(0, startTime + duration);
+
+  // Gentle high-pass to remove mud
+  const filter = ctx.createBiquadFilter();
+  filter.type = "highpass";
+  filter.frequency.value = 200;
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.01);
+}
+
+// ============ BASS SYNTH ============
+// Warm triangle wave with low-pass filter
+
+export function playBassNote(
+  ctx: AudioContext,
+  frequency: number,
+  duration: number,
+  startTime: number,
+  volume: number = 0.35
+): void {
+  const osc = ctx.createOscillator();
+  osc.type = "triangle";
+  osc.frequency.value = frequency;
+
+  // Sub oscillator for extra low end
+  const subOsc = ctx.createOscillator();
+  subOsc.type = "sine";
+  subOsc.frequency.value = frequency / 2;
+
+  // Low-pass filter for warmth
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 400;
+  filter.Q.value = 1;
+
+  // Main gain envelope
+  const gain = ctx.createGain();
+  const attackTime = 0.02;
+  const releaseTime = Math.min(0.15, duration * 0.3);
+
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(volume, startTime + attackTime);
+  gain.gain.setValueAtTime(volume, startTime + duration - releaseTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+  // Sub gain
+  const subGain = ctx.createGain();
+  subGain.gain.setValueAtTime(0, startTime);
+  subGain.gain.linearRampToValueAtTime(volume * 0.5, startTime + attackTime);
+  subGain.gain.setValueAtTime(volume * 0.5, startTime + duration - releaseTime);
+  subGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+
+  subOsc.connect(subGain);
+  subGain.connect(ctx.destination);
+
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.01);
+  subOsc.start(startTime);
+  subOsc.stop(startTime + duration + 0.01);
 }

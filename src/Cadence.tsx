@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { generateProgression, genres, keys, barOptions, modes, getChordName, type Genre, type Mode, type ProgressionBar, type ScaleDegree, type BarChord } from "./cadenceData";
+import { generateProgression, generateMelody, generateBassLine, getScaleDegreeFrequency, genres, keys, barOptions, modes, getChordName, type Genre, type Mode, type ProgressionBar, type ScaleDegree, type BarChord, type MelodyBar, type BassBar } from "./cadenceData";
 import { chords as allChords } from "./chordData";
-import { getAudioContext, playChord, playStrings, playHammond, playPiano } from "./audio";
+import { getAudioContext, playChord, playStrings, playHammond, playPiano, playMelodyNote, playBassNote } from "./audio";
 
 export type Instrument = "guitar" | "strings" | "hammond" | "piano";
 
@@ -11,14 +11,219 @@ type EditingPosition = { bar: number; chord: number } | null;
 // Track which chord is playing: [barIndex, chordIndex within bar]
 type PlayingPosition = { bar: number; chord: number } | null;
 
-// Play a percussion click sound at a specific time (woodblock-style)
-function playClickAt(ctx: AudioContext, time: number, accent: boolean = false) {
-  // Create a short noise burst filtered to sound like a woodblock/click
-  const bufferSize = Math.floor(ctx.sampleRate * 0.02); // 20ms
+// ============ DRUM SOUNDS ============
+
+// Kick drum - low frequency punch
+function playKick(ctx: AudioContext, time: number, volume: number = 0.7) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(150, time);
+  osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
+
+  gain.gain.setValueAtTime(volume, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start(time);
+  osc.stop(time + 0.3);
+}
+
+// Snare drum - noise burst with body
+function playSnare(ctx: AudioContext, time: number, volume: number = 0.5) {
+  // Noise component
+  const bufferSize = Math.floor(ctx.sampleRate * 0.15);
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
 
-  // Fill with noise
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = "highpass";
+  noiseFilter.frequency.value = 1000;
+
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(volume * 0.8, time);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+
+  // Body component
+  const osc = ctx.createOscillator();
+  const oscGain = ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.value = 180;
+  oscGain.gain.setValueAtTime(volume * 0.5, time);
+  oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+
+  osc.connect(oscGain);
+  oscGain.connect(ctx.destination);
+
+  noise.start(time);
+  noise.stop(time + 0.15);
+  osc.start(time);
+  osc.stop(time + 0.08);
+}
+
+// Hi-hat - high frequency noise
+function playHiHat(ctx: AudioContext, time: number, open: boolean = false, volume: number = 0.3) {
+  const bufferSize = Math.floor(ctx.sampleRate * (open ? 0.3 : 0.05));
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = "highpass";
+  filter.frequency.value = 7000;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(volume, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + (open ? 0.3 : 0.05));
+
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+
+  noise.start(time);
+  noise.stop(time + (open ? 0.3 : 0.05));
+}
+
+// Ride cymbal - for jazz
+function playRide(ctx: AudioContext, time: number, volume: number = 0.25) {
+  const bufferSize = Math.floor(ctx.sampleRate * 0.4);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = 5000;
+  filter.Q.value = 1;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(volume, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+
+  noise.start(time);
+  noise.stop(time + 0.4);
+}
+
+// Brush sound - for jazz
+function playBrush(ctx: AudioContext, time: number, volume: number = 0.15) {
+  const bufferSize = Math.floor(ctx.sampleRate * 0.2);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+  }
+
+  const noise = ctx.createBufferSource();
+  noise.buffer = buffer;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = 3000;
+  filter.Q.value = 0.5;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(volume, time);
+  gain.gain.linearRampToValueAtTime(0, time + 0.2);
+
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+
+  noise.start(time);
+  noise.stop(time + 0.2);
+}
+
+// ============ DRUM PATTERNS PER GENRE ============
+// Pattern arrays: 8 steps per bar (8th notes)
+// Values: 0 = off, 1 = hit
+
+type DrumPattern = {
+  name: string;
+  kick: number[];
+  snare: number[];
+  hihat: number[];
+  ride: number[];
+};
+
+type GenrePatterns = {
+  patterns: DrumPattern[];
+};
+
+const drumPatternsByGenre: Record<Genre, GenrePatterns> = {
+  pop: {
+    patterns: [
+      { name: "Basic", kick: [1,0,0,0,1,0,0,0], snare: [0,0,1,0,0,0,1,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
+      { name: "Four on floor", kick: [1,0,1,0,1,0,1,0], snare: [0,0,1,0,0,0,1,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
+      { name: "Ballad", kick: [1,0,0,0,0,0,1,0], snare: [0,0,1,0,0,0,0,1], hihat: [1,0,1,0,1,0,1,0], ride: [0,0,0,0,0,0,0,0] },
+      { name: "Syncopated", kick: [1,0,0,1,0,0,1,0], snare: [0,0,1,0,0,1,0,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
+    ]
+  },
+  rock: {
+    patterns: [
+      { name: "Basic", kick: [1,0,0,0,1,0,0,0], snare: [0,0,1,0,0,0,1,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
+      { name: "Driving", kick: [1,0,1,0,1,0,1,0], snare: [0,0,1,0,0,0,1,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
+      { name: "Half-time", kick: [1,0,0,0,0,0,0,0], snare: [0,0,0,0,1,0,0,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
+      { name: "Punk", kick: [1,1,1,1,1,1,1,1], snare: [0,0,1,0,0,0,1,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
+    ]
+  },
+  jazz: {
+    patterns: [
+      { name: "Swing", kick: [1,0,0,0,0,0,0,0], snare: [0,0,0,0,0,0,0,0], hihat: [0,0,0,0,1,0,0,0], ride: [1,0,1,1,0,1,1,0] },
+      { name: "Bossa", kick: [1,0,0,0,0,0,1,0], snare: [0,0,0,1,0,0,0,0], hihat: [1,0,1,0,1,0,1,0], ride: [0,0,0,0,0,0,0,0] },
+      { name: "Brushes", kick: [1,0,0,0,0,0,0,0], snare: [0,0,1,0,0,0,1,0], hihat: [0,0,0,0,0,0,0,0], ride: [1,1,1,1,1,1,1,1] },
+      { name: "Fast swing", kick: [1,0,0,0,1,0,0,0], snare: [0,0,0,0,0,0,0,0], hihat: [0,0,1,0,0,0,1,0], ride: [1,0,1,1,1,0,1,1] },
+    ]
+  },
+  blues: {
+    patterns: [
+      { name: "Shuffle", kick: [1,0,0,1,0,0,1,0], snare: [0,0,1,0,0,1,0,0], hihat: [1,0,1,1,0,1,1,0], ride: [0,0,0,0,0,0,0,0] },
+      { name: "Slow blues", kick: [1,0,0,0,0,0,1,0], snare: [0,0,0,0,1,0,0,0], hihat: [1,0,1,0,1,0,1,0], ride: [0,0,0,0,0,0,0,0] },
+      { name: "Chicago", kick: [1,0,1,0,1,0,0,0], snare: [0,0,1,0,0,0,1,1], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
+      { name: "Texas", kick: [1,0,0,1,0,1,0,0], snare: [0,0,1,0,0,0,1,0], hihat: [1,0,1,1,0,1,1,0], ride: [0,0,0,0,0,0,0,0] },
+    ]
+  },
+  classical: {
+    patterns: [
+      { name: "Tick", kick: [0,0,0,0,0,0,0,0], snare: [0,0,0,0,0,0,0,0], hihat: [0,0,0,0,0,0,0,0], ride: [1,0,0,0,1,0,0,0] },
+      { name: "Waltz", kick: [1,0,0,0,0,0,0,0], snare: [0,0,0,1,0,0,1,0], hihat: [0,0,0,0,0,0,0,0], ride: [0,0,0,0,0,0,0,0] },
+      { name: "March", kick: [1,0,1,0,1,0,1,0], snare: [0,0,1,0,0,0,1,0], hihat: [0,0,0,0,0,0,0,0], ride: [0,0,0,0,0,0,0,0] },
+      { name: "Silent", kick: [0,0,0,0,0,0,0,0], snare: [0,0,0,0,0,0,0,0], hihat: [0,0,0,0,0,0,0,0], ride: [0,0,0,0,0,0,0,0] },
+    ]
+  },
+};
+
+// Simple click sound for metronome
+function playClick(ctx: AudioContext, time: number, accent: boolean = false) {
+  const bufferSize = Math.floor(ctx.sampleRate * 0.02);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
   for (let i = 0; i < bufferSize; i++) {
     data[i] = Math.random() * 2 - 1;
   }
@@ -26,15 +231,13 @@ function playClickAt(ctx: AudioContext, time: number, accent: boolean = false) {
   const source = ctx.createBufferSource();
   source.buffer = buffer;
 
-  // Bandpass filter for woody tone
   const filter = ctx.createBiquadFilter();
   filter.type = "bandpass";
   filter.frequency.value = accent ? 3500 : 2500;
   filter.Q.value = 5;
 
-  // Sharp envelope for percussive attack
   const gain = ctx.createGain();
-  gain.gain.setValueAtTime(accent ? 0.6 : 0.4, time);
+  gain.gain.setValueAtTime(accent ? 0.5 : 0.3, time);
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.015);
 
   source.connect(filter);
@@ -45,14 +248,42 @@ function playClickAt(ctx: AudioContext, time: number, accent: boolean = false) {
   source.stop(time + 0.02);
 }
 
-// Schedule multiple clicks for a bar/segment
-function scheduleClicks(ctx: AudioContext, duration: number, beatsPerBar: number, isFirstBeat: boolean) {
+// Schedule metronome clicks for a bar
+function scheduleClicks(ctx: AudioContext, duration: number, beatsPerBar: number) {
   const now = ctx.currentTime;
-  const beatDuration = duration / 1000 / beatsPerBar;
+  const beatDuration = (duration / 1000) / beatsPerBar;
 
   for (let i = 0; i < beatsPerBar; i++) {
-    const isAccent = i === 0 && isFirstBeat;
-    playClickAt(ctx, now + i * beatDuration, isAccent);
+    playClick(ctx, now + i * beatDuration, i === 0);
+  }
+}
+
+// Schedule drum pattern for a bar
+function scheduleDrums(ctx: AudioContext, duration: number, pattern: DrumPattern, genre: Genre) {
+  const now = ctx.currentTime;
+  const stepsPerBar = 8;
+  const stepDuration = (duration / 1000) / stepsPerBar;
+
+  for (let step = 0; step < stepsPerBar; step++) {
+    const time = now + step * stepDuration;
+
+    if (pattern.kick[step]) {
+      playKick(ctx, time, 0.6);
+    }
+    if (pattern.snare[step]) {
+      playSnare(ctx, time, 0.4);
+    }
+    if (pattern.hihat[step]) {
+      playHiHat(ctx, time, false, 0.25);
+    }
+    if (pattern.ride[step]) {
+      if (genre === "jazz") {
+        playRide(ctx, time, 0.2);
+        if (step === 0) playBrush(ctx, time, 0.1);
+      } else {
+        playHiHat(ctx, time, false, 0.15);
+      }
+    }
   }
 }
 
@@ -65,24 +296,49 @@ export function Cadence() {
   const [playingPosition, setPlayingPosition] = useState<PlayingPosition>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(100);
-  const [metronomeEnabled, setMetronomeEnabled] = useState(false);
+  const [rhythmMode, setRhythmMode] = useState<"off" | "click" | "drums">("off");
+  const [drumPatternIndex, setDrumPatternIndex] = useState(0);
   const [loopEnabled, setLoopEnabled] = useState(false);
   const [beatsPerBar, setBeatsPerBar] = useState(4);
   const [enabledInstruments, setEnabledInstruments] = useState<Set<Instrument>>(new Set(["guitar"]));
   const [editingPosition, setEditingPosition] = useState<EditingPosition>(null);
+  const [melodyEnabled, setMelodyEnabled] = useState(false);
+  const [bassEnabled, setBassEnabled] = useState(false);
+  const [melody, setMelody] = useState<MelodyBar[]>([]);
+  const [bassLine, setBassLine] = useState<BassBar[]>([]);
   const playTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playQueueRef = useRef<{ barIndex: number; chordIndex: number }[]>([]);
   const queueIndexRef = useRef(0);
   const loopEnabledRef = useRef(false);
-  const metronomeEnabledRef = useRef(false);
+  const rhythmModeRef = useRef<"off" | "click" | "drums">("off");
+  const drumPatternIndexRef = useRef(0);
   const bpmRef = useRef(100);
   const beatsPerBarRef = useRef(4);
 
+  const selectedGenreRef = useRef<Genre>(selectedGenre);
+  const selectedModeRef = useRef<Mode>(selectedMode);
+  const selectedKeyRef = useRef(selectedKey);
+  const melodyEnabledRef = useRef(false);
+  const bassEnabledRef = useRef(false);
+  const melodyRef = useRef<MelodyBar[]>([]);
+  const bassLineRef = useRef<BassBar[]>([]);
+
+  // Reset pattern index when genre changes
+  useEffect(() => { setDrumPatternIndex(0); }, [selectedGenre]);
+
   // Keep refs in sync with state
   useEffect(() => { loopEnabledRef.current = loopEnabled; }, [loopEnabled]);
-  useEffect(() => { metronomeEnabledRef.current = metronomeEnabled; }, [metronomeEnabled]);
+  useEffect(() => { rhythmModeRef.current = rhythmMode; }, [rhythmMode]);
+  useEffect(() => { drumPatternIndexRef.current = drumPatternIndex; }, [drumPatternIndex]);
   useEffect(() => { bpmRef.current = bpm; }, [bpm]);
   useEffect(() => { beatsPerBarRef.current = beatsPerBar; }, [beatsPerBar]);
+  useEffect(() => { selectedGenreRef.current = selectedGenre; }, [selectedGenre]);
+  useEffect(() => { selectedModeRef.current = selectedMode; }, [selectedMode]);
+  useEffect(() => { selectedKeyRef.current = selectedKey; }, [selectedKey]);
+  useEffect(() => { melodyEnabledRef.current = melodyEnabled; }, [melodyEnabled]);
+  useEffect(() => { bassEnabledRef.current = bassEnabled; }, [bassEnabled]);
+  useEffect(() => { melodyRef.current = melody; }, [melody]);
+  useEffect(() => { bassLineRef.current = bassLine; }, [bassLine]);
 
   const handleGenerate = useCallback(() => {
     // Stop any current playback
@@ -95,7 +351,13 @@ export function Cadence() {
 
     const newProgression = generateProgression(selectedKey, selectedGenre, numBars, selectedMode);
     setProgression(newProgression);
-  }, [selectedKey, selectedGenre, numBars, selectedMode]);
+
+    // Generate melody and bass line
+    const newMelody = generateMelody(newProgression, selectedKey, selectedMode, selectedGenre, beatsPerBar);
+    const newBassLine = generateBassLine(newProgression, selectedKey, selectedMode, selectedGenre, beatsPerBar);
+    setMelody(newMelody);
+    setBassLine(newBassLine);
+  }, [selectedKey, selectedGenre, numBars, selectedMode, beatsPerBar]);
 
   const toggleInstrument = useCallback((instrument: Instrument) => {
     setEnabledInstruments(prev => {
@@ -233,12 +495,48 @@ export function Cadence() {
       const timePerBar = (60 / currentBpm) * currentBeatsPerBar * 1000;
       const duration = bar.chords.length > 1 ? timePerBar / 2 : timePerBar;
 
-      // Schedule metronome clicks for this segment
-      if (metronomeEnabledRef.current) {
-        const ctx = getAudioContext();
-        const beatsInSegment = bar.chords.length > 1 ? Math.ceil(currentBeatsPerBar / 2) : currentBeatsPerBar;
-        const isFirstBeatOfBar = chordIndex === 0;
-        scheduleClicks(ctx, duration, beatsInSegment, isFirstBeatOfBar);
+      // Schedule rhythm (only on first chord of bar)
+      const ctx = getAudioContext();
+      if (chordIndex === 0) {
+        const mode = rhythmModeRef.current;
+        if (mode === "click") {
+          scheduleClicks(ctx, timePerBar, currentBeatsPerBar);
+        } else if (mode === "drums") {
+          const genre = selectedGenreRef.current;
+          const patternIdx = drumPatternIndexRef.current;
+          const pattern = drumPatternsByGenre[genre].patterns[patternIdx];
+          scheduleDrums(ctx, timePerBar, pattern, genre);
+        }
+
+        // Schedule melody notes for this bar
+        if (melodyEnabledRef.current && melodyRef.current[barIndex]) {
+          const barMelody = melodyRef.current[barIndex];
+          const key = selectedKeyRef.current;
+          const modeConfig = selectedModeRef.current;
+          const beatDuration = (timePerBar / 1000) / currentBeatsPerBar;
+
+          barMelody.forEach(note => {
+            const freq = getScaleDegreeFrequency(key, note.scaleDegree, modeConfig, note.octave);
+            const noteStartTime = ctx.currentTime + note.beat * beatDuration;
+            const noteDuration = note.duration * beatDuration;
+            playMelodyNote(ctx, freq, noteDuration, noteStartTime);
+          });
+        }
+
+        // Schedule bass notes for this bar
+        if (bassEnabledRef.current && bassLineRef.current[barIndex]) {
+          const barBass = bassLineRef.current[barIndex];
+          const key = selectedKeyRef.current;
+          const modeConfig = selectedModeRef.current;
+          const beatDuration = (timePerBar / 1000) / currentBeatsPerBar;
+
+          barBass.forEach(note => {
+            const freq = getScaleDegreeFrequency(key, note.scaleDegree, modeConfig, note.octave);
+            const noteStartTime = ctx.currentTime + note.beat * beatDuration;
+            const noteDuration = note.duration * beatDuration;
+            playBassNote(ctx, freq, noteDuration, noteStartTime);
+          });
+        }
       }
 
       playChordByName(chord.chordName, duration / 1000);
@@ -399,39 +697,56 @@ export function Cadence() {
                 <span className="text-white font-mono text-sm w-10 text-right">{bpm}</span>
               </div>
 
-              {/* Metronome Toggle + Beats Selector */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setMetronomeEnabled(!metronomeEnabled)}
-                  className={`px-3 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center gap-2
-                    ${metronomeEnabled
-                      ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg"
-                      : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
-                    }`}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Click
-                </button>
-                {metronomeEnabled && (
-                  <div className="flex bg-zinc-800/50 rounded-lg p-0.5">
-                    {[2, 3, 4, 6].map((beats) => (
-                      <button
-                        key={beats}
-                        onClick={() => setBeatsPerBar(beats)}
-                        className={`w-7 h-7 rounded text-xs font-bold transition-all
-                          ${beatsPerBar === beats
-                            ? "bg-amber-500 text-white"
-                            : "text-zinc-400 hover:text-white"
-                          }`}
-                      >
-                        {beats}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              {/* Rhythm Mode Toggle */}
+              <div className="flex items-center gap-1 bg-zinc-800/50 rounded-lg p-1">
+                {(["off", "click", "drums"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setRhythmMode(mode)}
+                    className={`px-3 py-1.5 rounded-md font-medium text-xs transition-all duration-200
+                      ${rhythmMode === mode
+                        ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md"
+                        : "text-zinc-400 hover:text-white"
+                      }`}
+                  >
+                    {mode === "off" ? "No Beat" : mode === "click" ? "Click" : "Drums"}
+                  </button>
+                ))}
               </div>
+
+              {/* Beats per bar selector (when click mode) */}
+              {rhythmMode === "click" && (
+                <div className="flex items-center gap-1 bg-zinc-800/50 rounded-lg p-1">
+                  {[2, 3, 4, 6].map((beats) => (
+                    <button
+                      key={beats}
+                      onClick={() => setBeatsPerBar(beats)}
+                      className={`w-7 h-7 rounded-md font-medium text-xs transition-all duration-200
+                        ${beatsPerBar === beats
+                          ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md"
+                          : "text-zinc-400 hover:text-white"
+                        }`}
+                    >
+                      {beats}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Pattern selector (when drums mode) */}
+              {rhythmMode === "drums" && (
+                <select
+                  value={drumPatternIndex}
+                  onChange={(e) => setDrumPatternIndex(Number(e.target.value))}
+                  className="px-3 py-2 rounded-lg bg-zinc-800/50 text-white text-sm border border-zinc-700 focus:border-cyan-500 focus:outline-none"
+                >
+                  {drumPatternsByGenre[selectedGenre].patterns.map((pattern, idx) => (
+                    <option key={idx} value={idx}>
+                      {pattern.name}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               {/* Loop Toggle */}
               <button
@@ -450,8 +765,8 @@ export function Cadence() {
             </div>
 
             {/* Instrument Toggles */}
-            <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
-              <span className="text-zinc-500 text-xs mr-1">Sounds:</span>
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+              <span className="text-zinc-500 text-xs mr-1">Chords:</span>
               {(["guitar", "piano", "strings", "hammond"] as Instrument[]).map((instrument) => (
                 <button
                   key={instrument}
@@ -465,6 +780,37 @@ export function Cadence() {
                   {instrument.charAt(0).toUpperCase() + instrument.slice(1)}
                 </button>
               ))}
+            </div>
+
+            {/* Melody & Bass Toggles */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+              <span className="text-zinc-500 text-xs mr-1">Extra:</span>
+              <button
+                onClick={() => setMelodyEnabled(!melodyEnabled)}
+                className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 flex items-center gap-1.5
+                  ${melodyEnabled
+                    ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md"
+                    : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
+                  }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+                Melody
+              </button>
+              <button
+                onClick={() => setBassEnabled(!bassEnabled)}
+                className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 flex items-center gap-1.5
+                  ${bassEnabled
+                    ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md"
+                    : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
+                  }`}
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                </svg>
+                Bass
+              </button>
             </div>
 
             {/* Play/Stop Button */}
