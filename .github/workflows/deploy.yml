@@ -1,0 +1,34 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Deploy
+        run: |
+          zip -r dist.zip dist
+          curl -k -X POST \
+            -H "X-TOKEN: ${{ secrets.NOVA_TOKEN }}" \
+            -F "file=@dist.zip" \
+            -F "project=guitar-tuner" \
+            https://deploy.nexys.io/upload
