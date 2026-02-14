@@ -5,9 +5,11 @@ import { Tuner } from "./Tuner";
 import { Chords } from "./Chords";
 import { Cadence } from "./Cadence";
 
+const basename = process.env.NODE_ENV === "production" ? "/guitar-tuner" : "/";
+
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Tuner />} />
