@@ -87,21 +87,43 @@ export function playChord(
     const frequency = getFretFrequency(stringIndex, fret);
     const { source, gainNode } = createPluckedString(ctx, frequency, 2.5);
 
-    gainNode.connect(ctx.destination);
+    gainNode.connect(getMasterOutput());
     source.start(now + stringIndex * (strumDelay / 1000));
   });
 }
 
 let audioContext: AudioContext | null = null;
+let analyser: AnalyserNode | null = null;
+let masterGain: GainNode | null = null;
 
 export function getAudioContext(): AudioContext {
   if (!audioContext) {
     audioContext = new AudioContext();
+    // Create analyser for visualization
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.8;
+    // Master gain for volume control
+    masterGain = audioContext.createGain();
+    masterGain.gain.value = 1.0;
+    masterGain.connect(analyser);
+    analyser.connect(audioContext.destination);
   }
   if (audioContext.state === "suspended") {
     audioContext.resume();
   }
   return audioContext;
+}
+
+// Get analyser node for visualizations
+export function getAnalyser(): AnalyserNode | null {
+  return analyser;
+}
+
+// Get master gain node - all sounds should connect to this instead of destination
+export function getMasterOutput(): GainNode {
+  getAudioContext(); // Ensure initialized
+  return masterGain!;
 }
 
 // Note frequencies for synth instruments (C3 = middle C area)
@@ -178,7 +200,7 @@ export function playStrings(ctx: AudioContext, chordName: string, duration: numb
 
       osc.connect(filter);
       filter.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(getMasterOutput());
 
       osc.start(now);
       osc.stop(now + duration);
@@ -209,7 +231,7 @@ export function playHammond(ctx: AudioContext, chordName: string, duration: numb
       gain.gain.linearRampToValueAtTime(0, now + duration);
 
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(getMasterOutput());
 
       osc.start(now);
       osc.stop(now + duration);
@@ -243,7 +265,7 @@ export function playPiano(ctx: AudioContext, chordName: string, duration: number
       gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(getMasterOutput());
 
       osc.start(now + noteIndex * 0.02);
       osc.stop(now + duration);
@@ -252,50 +274,73 @@ export function playPiano(ctx: AudioContext, chordName: string, duration: number
 }
 
 // ============ MELODY SYNTH ============
-// Sine wave with slight vibrato for clear, singing melody
+// Warm, smooth lead sound - like a soft synth or flute
 
 export function playMelodyNote(
   ctx: AudioContext,
   frequency: number,
   duration: number,
   startTime: number,
-  volume: number = 0.2
+  volume: number = 0.15
 ): void {
-  const osc = ctx.createOscillator();
-  osc.type = "sine";
-  osc.frequency.value = frequency;
+  // Main oscillator - triangle for warmth
+  const osc1 = ctx.createOscillator();
+  osc1.type = "triangle";
+  osc1.frequency.value = frequency;
 
-  // Slight vibrato for expressiveness
+  // Second oscillator slightly detuned for richness
+  const osc2 = ctx.createOscillator();
+  osc2.type = "sine";
+  osc2.frequency.value = frequency;
+  osc2.detune.value = 7; // Slight detune for chorus effect
+
+  // Gentle, slow vibrato (delayed onset - more natural)
   const vibrato = ctx.createOscillator();
   const vibratoGain = ctx.createGain();
-  vibrato.frequency.value = 5; // 5Hz vibrato rate
-  vibratoGain.gain.value = 3; // 3 cents depth
+  vibrato.frequency.value = 4.5; // Slower vibrato
+  vibratoGain.gain.setValueAtTime(0, startTime);
+  vibratoGain.gain.linearRampToValueAtTime(0, startTime + 0.2); // No vibrato initially
+  vibratoGain.gain.linearRampToValueAtTime(4, startTime + 0.4); // Gentle vibrato fades in
   vibrato.connect(vibratoGain);
-  vibratoGain.connect(osc.detune);
+  vibratoGain.connect(osc1.detune);
   vibrato.start(startTime);
-  vibrato.stop(startTime + duration);
+  vibrato.stop(startTime + duration + 0.1);
 
-  // Smooth envelope
+  // Low-pass filter for smoothness
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 2000;
+  filter.Q.value = 0.5;
+
+  // Smooth envelope with longer attack
   const gain = ctx.createGain();
-  const attackTime = Math.min(0.05, duration * 0.1);
-  const releaseTime = Math.min(0.1, duration * 0.2);
+  const attackTime = Math.min(0.08, duration * 0.15);
+  const releaseTime = Math.min(0.15, duration * 0.25);
 
   gain.gain.setValueAtTime(0, startTime);
   gain.gain.linearRampToValueAtTime(volume, startTime + attackTime);
-  gain.gain.setValueAtTime(volume, startTime + duration - releaseTime);
+  gain.gain.setValueAtTime(volume * 0.85, startTime + duration - releaseTime);
   gain.gain.linearRampToValueAtTime(0, startTime + duration);
 
-  // Gentle high-pass to remove mud
-  const filter = ctx.createBiquadFilter();
-  filter.type = "highpass";
-  filter.frequency.value = 200;
+  // Second osc gain (quieter)
+  const gain2 = ctx.createGain();
+  gain2.gain.setValueAtTime(0, startTime);
+  gain2.gain.linearRampToValueAtTime(volume * 0.4, startTime + attackTime);
+  gain2.gain.setValueAtTime(volume * 0.35, startTime + duration - releaseTime);
+  gain2.gain.linearRampToValueAtTime(0, startTime + duration);
 
-  osc.connect(filter);
+  // Connect
+  osc1.connect(filter);
   filter.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(getMasterOutput());
 
-  osc.start(startTime);
-  osc.stop(startTime + duration + 0.01);
+  osc2.connect(gain2);
+  gain2.connect(getMasterOutput());
+
+  osc1.start(startTime);
+  osc1.stop(startTime + duration + 0.1);
+  osc2.start(startTime);
+  osc2.stop(startTime + duration + 0.1);
 }
 
 // ============ BASS SYNTH ============
@@ -342,10 +387,10 @@ export function playBassNote(
 
   osc.connect(filter);
   filter.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(getMasterOutput());
 
   subOsc.connect(subGain);
-  subGain.connect(ctx.destination);
+  subGain.connect(getMasterOutput());
 
   osc.start(startTime);
   osc.stop(startTime + duration + 0.01);

@@ -427,57 +427,59 @@ export function getScaleDegreeFrequency(
 }
 
 // Melody Markov matrices - probability of moving to next scale degree
+// STRONGLY favor stepwise motion (adjacent notes) - leaps should be rare!
 // Rows: current degree (0-6), Columns: next degree (0-6)
 const melodyMatrices: Record<Genre, number[][]> = {
   pop: [
-    // Stepwise motion, simple patterns
-    [0.15, 0.25, 0.15, 0.10, 0.15, 0.10, 0.10], // from 0
-    [0.25, 0.10, 0.25, 0.15, 0.10, 0.10, 0.05], // from 1
-    [0.15, 0.25, 0.10, 0.25, 0.10, 0.10, 0.05], // from 2
-    [0.15, 0.15, 0.25, 0.10, 0.20, 0.10, 0.05], // from 3
-    [0.20, 0.10, 0.10, 0.20, 0.10, 0.20, 0.10], // from 4
-    [0.15, 0.10, 0.10, 0.15, 0.25, 0.10, 0.15], // from 5
-    [0.30, 0.10, 0.10, 0.10, 0.15, 0.20, 0.05], // from 6
+    // Very stepwise - pop melodies are singable
+    //   0     1     2     3     4     5     6
+    [0.20, 0.40, 0.15, 0.05, 0.05, 0.05, 0.10], // from 0: strong pull to 1, can go to 6
+    [0.35, 0.15, 0.35, 0.10, 0.03, 0.02, 0.00], // from 1: step to 0 or 2
+    [0.10, 0.35, 0.15, 0.30, 0.07, 0.03, 0.00], // from 2
+    [0.05, 0.10, 0.35, 0.15, 0.30, 0.05, 0.00], // from 3
+    [0.05, 0.05, 0.10, 0.35, 0.15, 0.30, 0.00], // from 4
+    [0.05, 0.03, 0.05, 0.10, 0.35, 0.15, 0.27], // from 5
+    [0.15, 0.00, 0.02, 0.03, 0.10, 0.35, 0.35], // from 6: pull to 0 or stay/step to 5
   ],
   jazz: [
-    // More leaps, chromatic approach
-    [0.10, 0.20, 0.15, 0.15, 0.20, 0.10, 0.10], // from 0
-    [0.20, 0.10, 0.20, 0.15, 0.15, 0.10, 0.10], // from 1
-    [0.15, 0.20, 0.10, 0.20, 0.15, 0.10, 0.10], // from 2
-    [0.15, 0.15, 0.20, 0.10, 0.20, 0.10, 0.10], // from 3
-    [0.20, 0.10, 0.15, 0.20, 0.10, 0.15, 0.10], // from 4
-    [0.15, 0.10, 0.15, 0.15, 0.20, 0.10, 0.15], // from 5
-    [0.25, 0.15, 0.10, 0.15, 0.15, 0.15, 0.05], // from 6
+    // Slightly more leaps allowed, but still mostly stepwise
+    [0.15, 0.35, 0.15, 0.10, 0.10, 0.05, 0.10], // from 0
+    [0.30, 0.10, 0.30, 0.15, 0.10, 0.05, 0.00], // from 1
+    [0.10, 0.30, 0.10, 0.30, 0.12, 0.08, 0.00], // from 2
+    [0.08, 0.12, 0.30, 0.10, 0.30, 0.10, 0.00], // from 3
+    [0.10, 0.08, 0.12, 0.30, 0.10, 0.25, 0.05], // from 4
+    [0.08, 0.05, 0.08, 0.12, 0.30, 0.12, 0.25], // from 5
+    [0.20, 0.05, 0.05, 0.05, 0.10, 0.30, 0.25], // from 6
   ],
   blues: [
-    // Pentatonic focus (degrees 0, 2, 3, 4, 6)
-    [0.15, 0.05, 0.25, 0.20, 0.15, 0.05, 0.15], // from 0
-    [0.25, 0.05, 0.25, 0.20, 0.15, 0.05, 0.05], // from 1
-    [0.20, 0.05, 0.10, 0.25, 0.20, 0.05, 0.15], // from 2
-    [0.20, 0.05, 0.20, 0.10, 0.25, 0.05, 0.15], // from 3
-    [0.25, 0.05, 0.15, 0.25, 0.10, 0.05, 0.15], // from 4
-    [0.20, 0.10, 0.20, 0.20, 0.20, 0.05, 0.05], // from 5
-    [0.30, 0.05, 0.20, 0.20, 0.15, 0.05, 0.05], // from 6
+    // Pentatonic feel but still stepwise within that
+    [0.20, 0.10, 0.30, 0.20, 0.10, 0.02, 0.08], // from 0: favor 2,3 (blue notes)
+    [0.35, 0.10, 0.30, 0.15, 0.08, 0.02, 0.00], // from 1
+    [0.15, 0.10, 0.15, 0.40, 0.15, 0.03, 0.02], // from 2: strong to 3
+    [0.10, 0.05, 0.35, 0.15, 0.30, 0.03, 0.02], // from 3
+    [0.10, 0.03, 0.10, 0.35, 0.15, 0.12, 0.15], // from 4
+    [0.08, 0.02, 0.05, 0.10, 0.35, 0.15, 0.25], // from 5
+    [0.20, 0.02, 0.05, 0.08, 0.15, 0.30, 0.20], // from 6
   ],
   rock: [
-    // Root/5th emphasis
-    [0.20, 0.10, 0.15, 0.15, 0.25, 0.10, 0.05], // from 0
-    [0.30, 0.10, 0.20, 0.15, 0.15, 0.05, 0.05], // from 1
-    [0.20, 0.20, 0.10, 0.20, 0.20, 0.05, 0.05], // from 2
-    [0.20, 0.15, 0.20, 0.10, 0.25, 0.05, 0.05], // from 3
-    [0.30, 0.10, 0.15, 0.20, 0.10, 0.10, 0.05], // from 4
-    [0.20, 0.15, 0.15, 0.15, 0.25, 0.05, 0.05], // from 5
-    [0.40, 0.10, 0.15, 0.15, 0.15, 0.05, 0.00], // from 6
+    // Slightly more angular but still melodic
+    [0.20, 0.35, 0.15, 0.08, 0.12, 0.05, 0.05], // from 0
+    [0.35, 0.15, 0.30, 0.12, 0.05, 0.03, 0.00], // from 1
+    [0.12, 0.30, 0.15, 0.30, 0.10, 0.03, 0.00], // from 2
+    [0.08, 0.12, 0.30, 0.15, 0.30, 0.05, 0.00], // from 3
+    [0.15, 0.05, 0.10, 0.30, 0.15, 0.25, 0.00], // from 4
+    [0.08, 0.03, 0.05, 0.12, 0.30, 0.17, 0.25], // from 5
+    [0.20, 0.02, 0.03, 0.05, 0.10, 0.30, 0.30], // from 6
   ],
   classical: [
-    // Voice leading rules
-    [0.10, 0.25, 0.20, 0.15, 0.15, 0.10, 0.05], // from 0
-    [0.25, 0.05, 0.25, 0.15, 0.15, 0.10, 0.05], // from 1
-    [0.15, 0.25, 0.05, 0.25, 0.15, 0.10, 0.05], // from 2
-    [0.15, 0.15, 0.25, 0.05, 0.25, 0.10, 0.05], // from 3
-    [0.20, 0.10, 0.15, 0.25, 0.05, 0.20, 0.05], // from 4
-    [0.15, 0.10, 0.15, 0.15, 0.25, 0.05, 0.15], // from 5
-    [0.35, 0.15, 0.10, 0.10, 0.15, 0.15, 0.00], // from 6
+    // Very strict voice leading - almost always stepwise
+    [0.15, 0.45, 0.15, 0.05, 0.05, 0.03, 0.12], // from 0
+    [0.40, 0.10, 0.40, 0.07, 0.02, 0.01, 0.00], // from 1
+    [0.08, 0.40, 0.10, 0.35, 0.05, 0.02, 0.00], // from 2
+    [0.05, 0.08, 0.38, 0.10, 0.35, 0.04, 0.00], // from 3
+    [0.05, 0.04, 0.08, 0.38, 0.10, 0.32, 0.03], // from 4
+    [0.04, 0.02, 0.04, 0.08, 0.38, 0.12, 0.32], // from 5
+    [0.18, 0.02, 0.02, 0.03, 0.07, 0.38, 0.30], // from 6
   ],
 };
 
@@ -487,29 +489,33 @@ type BassPattern = { degrees: number[]; beats: number[] };
 
 const bassPatterns: Record<Genre, BassPattern[]> = {
   pop: [
-    { degrees: [0, 0, 4, 4], beats: [0, 2, 2.5, 3] }, // root-root-5th-5th
-    { degrees: [0, 4, 0, 4], beats: [0, 1, 2, 3] }, // alternating root-5th
-    { degrees: [0, 0, 0, 0], beats: [0, 1, 2, 3] }, // simple root
+    { degrees: [0, 0, 4, 4], beats: [0, 1.5, 2, 3.5] }, // syncopated root-5th
+    { degrees: [0, 4, 0, 4, 0], beats: [0, 1, 2, 2.5, 3] }, // bouncy
+    { degrees: [0, 0, 0, 4, 0, 4], beats: [0, 0.5, 1, 2, 2.5, 3] }, // eighth note groove
+    { degrees: [0, 2, 4, 0], beats: [0, 1.5, 2, 3] }, // walking with syncopation
   ],
   jazz: [
-    { degrees: [0, 2, 4, 6], beats: [0, 1, 2, 3] }, // walking up
-    { degrees: [0, 4, 2, -1], beats: [0, 1, 2, 3] }, // root-5th-3rd-approach
-    { degrees: [0, 2, 4, 2], beats: [0, 1, 2, 3] }, // 1-3-5-3
+    { degrees: [0, 2, 4, -1], beats: [0, 1, 2, 3] }, // walking with approach
+    { degrees: [0, 4, 2, 4, -1], beats: [0, 1, 1.66, 2.66, 3.33] }, // swing walking
+    { degrees: [0, 0, 2, 4, 2], beats: [0, 0.66, 1.33, 2, 3] }, // bebop feel
+    { degrees: [0, 4, 0, 2, 4, -1], beats: [0, 0.66, 1.33, 2, 2.66, 3.33] }, // busy walking
   ],
   blues: [
-    { degrees: [0, 0, 4, 4], beats: [0, 1.5, 2, 3.5] }, // shuffle root-5th
-    { degrees: [0, 2, 4, 6], beats: [0, 1, 2, 3] }, // walking
-    { degrees: [0, 4, 0, -1], beats: [0, 1, 2, 3] }, // root-5th-root-approach
+    { degrees: [0, 0, 4, 4, 0, 4], beats: [0, 0.66, 1.33, 2, 2.66, 3.33] }, // shuffle
+    { degrees: [0, 2, 3, 4, 3, 2], beats: [0, 0.66, 1.33, 2, 2.66, 3.33] }, // blues walk
+    { degrees: [0, 0, 0, 4, 4, 0], beats: [0, 0.66, 1.33, 2, 2.66, 3.33] }, // shuffle root-5th
   ],
   rock: [
-    { degrees: [0, 0, 0, 0], beats: [0, 1, 2, 3] }, // driving root
-    { degrees: [0, 0, 4, 4], beats: [0, 1, 2, 3] }, // root-root-5th-5th
-    { degrees: [0, 0, 0, 4], beats: [0, 0.5, 1, 1.5] }, // eighth note drive (half bar)
+    { degrees: [0, 0, 0, 0, 0, 0, 0, 0], beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] }, // driving eighths
+    { degrees: [0, 0, 4, 4, 0, 0, 4, 4], beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] }, // eighth note root-5th
+    { degrees: [0, 0, 0, 4, 0, 0, 4, 0], beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] }, // punk feel
+    { degrees: [0, 4, 0, 4], beats: [0, 1, 2, 3] }, // simple quarters
   ],
   classical: [
-    { degrees: [0, 4, 2, 4], beats: [0, 1, 2, 3] }, // arpeggiated
-    { degrees: [0, 0, 4, 0], beats: [0, 1, 2, 3] }, // waltz-like
-    { degrees: [0, 2, 4, 2], beats: [0, 1, 2, 3] }, // alberti-ish
+    { degrees: [0, 4, 2, 4, 0, 4, 2, 4], beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] }, // alberti bass
+    { degrees: [0, 2, 4, 2, 0, 2, 4, 2], beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] }, // arpeggiated
+    { degrees: [0, 0, 4, 0], beats: [0, 1, 2, 3] }, // simple waltz
+    { degrees: [0, 4, 2, 4, 0], beats: [0, 1, 1.5, 2.5, 3] }, // flowing
   ],
 };
 
@@ -518,6 +524,69 @@ function getChordTones(chordDegree: ScaleDegree): number[] {
   // Return scale degrees that are chord tones
   // For chord on degree X: root is X, third is X+2, fifth is X+4
   return [chordDegree, (chordDegree + 2) % 7, (chordDegree + 4) % 7];
+}
+
+// Rhythm patterns for melody per genre
+// Each pattern is an array of { beat, duration } defining when notes hit
+type RhythmPattern = { beat: number; duration: number }[];
+
+const melodyRhythmPatterns: Record<Genre, RhythmPattern[]> = {
+  pop: [
+    [{ beat: 0, duration: 1 }, { beat: 1, duration: 0.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 1 }, { beat: 3, duration: 1 }],
+    [{ beat: 0, duration: 0.5 }, { beat: 0.5, duration: 0.5 }, { beat: 1, duration: 1 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 1 }],
+    [{ beat: 0, duration: 1.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 1 }, { beat: 3, duration: 0.5 }, { beat: 3.5, duration: 0.5 }],
+    [{ beat: 0, duration: 1 }, { beat: 1, duration: 1 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 0.5 }, { beat: 3.5, duration: 0.5 }],
+  ],
+  jazz: [
+    // Swing feel - offbeat emphasis
+    [{ beat: 0, duration: 0.66 }, { beat: 0.66, duration: 0.34 }, { beat: 1, duration: 0.66 }, { beat: 1.66, duration: 0.34 }, { beat: 2, duration: 0.66 }, { beat: 2.66, duration: 0.34 }, { beat: 3, duration: 0.66 }, { beat: 3.66, duration: 0.34 }],
+    [{ beat: 0, duration: 1 }, { beat: 1, duration: 0.5 }, { beat: 1.66, duration: 0.34 }, { beat: 2, duration: 0.66 }, { beat: 2.66, duration: 0.34 }, { beat: 3, duration: 1 }],
+    [{ beat: 0, duration: 0.5 }, { beat: 0.66, duration: 0.34 }, { beat: 1, duration: 1 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 0.66 }, { beat: 3.66, duration: 0.34 }],
+  ],
+  blues: [
+    // Shuffle/triplet feel
+    [{ beat: 0, duration: 0.66 }, { beat: 0.66, duration: 0.34 }, { beat: 1, duration: 0.66 }, { beat: 1.66, duration: 0.34 }, { beat: 2, duration: 1 }, { beat: 3, duration: 0.66 }, { beat: 3.66, duration: 0.34 }],
+    [{ beat: 0, duration: 1 }, { beat: 1, duration: 0.66 }, { beat: 1.66, duration: 0.34 }, { beat: 2, duration: 0.66 }, { beat: 2.66, duration: 0.34 }, { beat: 3, duration: 1 }],
+    [{ beat: 0, duration: 0.66 }, { beat: 0.66, duration: 0.34 }, { beat: 1, duration: 1.5 }, { beat: 2.66, duration: 0.34 }, { beat: 3, duration: 1 }],
+  ],
+  rock: [
+    [{ beat: 0, duration: 0.5 }, { beat: 0.5, duration: 0.5 }, { beat: 1, duration: 0.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 1 }, { beat: 3, duration: 0.5 }, { beat: 3.5, duration: 0.5 }],
+    [{ beat: 0, duration: 1 }, { beat: 1, duration: 0.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 1 }],
+    [{ beat: 0, duration: 0.5 }, { beat: 0.5, duration: 0.5 }, { beat: 1, duration: 1 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 1 }, { beat: 3.5, duration: 0.5 }],
+  ],
+  classical: [
+    [{ beat: 0, duration: 0.5 }, { beat: 0.5, duration: 0.5 }, { beat: 1, duration: 0.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 0.5 }, { beat: 3.5, duration: 0.5 }],
+    [{ beat: 0, duration: 1 }, { beat: 1, duration: 0.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 1 }, { beat: 3, duration: 0.5 }, { beat: 3.5, duration: 0.5 }],
+    [{ beat: 0, duration: 1.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 1 }],
+  ],
+};
+
+// Find the nearest chord tone to a given degree (for smooth voice leading)
+function nearestChordTone(currentDegree: number, chordTones: number[]): number {
+  let nearest = chordTones[0];
+  let minDistance = 7;
+
+  for (const tone of chordTones) {
+    // Check both direct and octave-wrapped distances
+    const dist1 = Math.abs(tone - currentDegree);
+    const dist2 = Math.abs((tone + 7) - currentDegree);
+    const dist3 = Math.abs((tone - 7) - currentDegree);
+    const dist = Math.min(dist1, dist2, dist3);
+
+    if (dist < minDistance) {
+      minDistance = dist;
+      nearest = tone;
+    }
+  }
+  return nearest;
+}
+
+// Get approach note (one step below or above target)
+function getApproachNote(targetDegree: number): number {
+  // 50% chance approach from below, 50% from above
+  return Math.random() < 0.5
+    ? (targetDegree - 1 + 7) % 7
+    : (targetDegree + 1) % 7;
 }
 
 // Generate melody for a progression
@@ -529,39 +598,78 @@ export function generateMelody(
   beatsPerBar: number = 4
 ): MelodyBar[] {
   const matrix = melodyMatrices[genre];
+  const rhythmPatterns = melodyRhythmPatterns[genre];
   const melody: MelodyBar[] = [];
 
   // Start on the root of the first chord
   let currentDegree = progression[0]?.degree ?? 0;
+  let currentOctave = 1;
 
   for (let barIdx = 0; barIdx < progression.length; barIdx++) {
     const bar = progression[barIdx];
+    const nextBar = progression[barIdx + 1];
     const barMelody: MelodyNote[] = [];
     const chordTones = getChordTones(bar.degree);
+    const nextChordTones = nextBar ? getChordTones(nextBar.degree) : chordTones;
 
-    // Number of notes per bar varies by genre
-    const notesPerBar = genre === "jazz" ? 8 : genre === "blues" ? 6 : 4;
-    const noteDuration = beatsPerBar / notesPerBar;
+    // Pick a rhythm pattern for this bar
+    const pattern = rhythmPatterns[Math.floor(Math.random() * rhythmPatterns.length)];
 
-    for (let noteIdx = 0; noteIdx < notesPerBar; noteIdx++) {
-      const beat = noteIdx * noteDuration;
-      const isStrongBeat = beat % 1 === 0 && (beat === 0 || beat === 2);
+    for (let slotIdx = 0; slotIdx < pattern.length; slotIdx++) {
+      const slot = pattern[slotIdx];
 
-      // On strong beats, prefer chord tones
-      if (isStrongBeat && Math.random() < 0.7) {
-        // Pick a chord tone
-        currentDegree = chordTones[Math.floor(Math.random() * chordTones.length)];
-      } else {
-        // Use Markov chain for next note
+      // Skip if beat is beyond our bar length
+      if (slot.beat >= beatsPerBar) continue;
+
+      const isDownbeat = slot.beat === 0;
+      const isStrongBeat = isDownbeat || slot.beat === 2;
+      const isLastBeat = slot.beat >= beatsPerBar - 1;
+      const isApproachZone = slot.beat >= beatsPerBar - 0.5; // Last half beat
+
+      // "Music is the space between the notes" - add rests!
+      const restChance = isDownbeat ? 0.05 : isStrongBeat ? 0.12 : 0.2;
+      if (Math.random() < restChance) {
+        continue;
+      }
+
+      // === THE MAGIC: Chord transition handling ===
+
+      if (isDownbeat && barIdx > 0) {
+        // BAR START: Resolve to a chord tone via voice leading
+        currentDegree = nearestChordTone(currentDegree, chordTones);
+      }
+      else if (isApproachZone && nextBar && Math.random() < 0.6) {
+        // APPROACH ZONE: Lead into next chord
+        const targetNote = nearestChordTone(currentDegree, nextChordTones);
+
+        if (Math.random() < 0.4) {
+          // Anticipation - hit the next chord tone early!
+          currentDegree = targetNote;
+        } else {
+          // Approach note - step towards it
+          currentDegree = getApproachNote(targetNote);
+        }
+      }
+      else if (isStrongBeat && Math.random() < 0.7) {
+        // Strong beats: prefer chord tones (but via voice leading)
+        currentDegree = nearestChordTone(currentDegree, chordTones);
+      }
+      else {
+        // Weak beats: Markov chain for melodic motion
         const nextDegree = sampleFromDistribution(matrix[currentDegree]);
         currentDegree = nextDegree;
       }
 
+      // Occasional octave jumps (but keep it musical)
+      if (Math.random() < 0.08) {
+        currentOctave = currentOctave === 1 ? 2 : 1;
+      }
+
       barMelody.push({
         scaleDegree: currentDegree,
-        octave: 1, // One octave above bass
-        beat,
-        duration: noteDuration,
+        octave: currentOctave,
+        beat: slot.beat,
+        duration: Math.min(slot.duration, beatsPerBar - slot.beat),
       });
     }
 
@@ -596,6 +704,12 @@ export function generateBassLine(
 
       // If beat is beyond beatsPerBar, skip
       if (beat >= beatsPerBar) continue;
+
+      // Occasional rest - but always play beat 1 (downbeat anchors the harmony)
+      const isDownbeat = beat === 0;
+      if (!isDownbeat && Math.random() < 0.1) {
+        continue; // Skip - add some air
+      }
 
       // Approach note (-1 means approach next chord root from below)
       if (degree === -1 && nextBar) {

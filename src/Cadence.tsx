@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { generateProgression, generateMelody, generateBassLine, getScaleDegreeFrequency, genres, keys, barOptions, modes, getChordName, type Genre, type Mode, type ProgressionBar, type ScaleDegree, type BarChord, type MelodyBar, type BassBar } from "./cadenceData";
 import { chords as allChords } from "./chordData";
-import { getAudioContext, playChord, playStrings, playHammond, playPiano, playMelodyNote, playBassNote } from "./audio";
+import { getAudioContext, getMasterOutput, playChord, playStrings, playHammond, playPiano, playMelodyNote, playBassNote } from "./audio";
+import { Visualizer } from "./Visualizer";
 
 export type Instrument = "guitar" | "strings" | "hammond" | "piano";
 
@@ -26,7 +27,7 @@ function playKick(ctx: AudioContext, time: number, volume: number = 0.7) {
   gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
 
   osc.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(getMasterOutput());
 
   osc.start(time);
   osc.stop(time + 0.3);
@@ -55,7 +56,7 @@ function playSnare(ctx: AudioContext, time: number, volume: number = 0.5) {
 
   noise.connect(noiseFilter);
   noiseFilter.connect(noiseGain);
-  noiseGain.connect(ctx.destination);
+  noiseGain.connect(getMasterOutput());
 
   // Body component
   const osc = ctx.createOscillator();
@@ -66,7 +67,7 @@ function playSnare(ctx: AudioContext, time: number, volume: number = 0.5) {
   oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
 
   osc.connect(oscGain);
-  oscGain.connect(ctx.destination);
+  oscGain.connect(getMasterOutput());
 
   noise.start(time);
   noise.stop(time + 0.15);
@@ -96,7 +97,7 @@ function playHiHat(ctx: AudioContext, time: number, open: boolean = false, volum
 
   noise.connect(filter);
   filter.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(getMasterOutput());
 
   noise.start(time);
   noise.stop(time + (open ? 0.3 : 0.05));
@@ -125,7 +126,7 @@ function playRide(ctx: AudioContext, time: number, volume: number = 0.25) {
 
   noise.connect(filter);
   filter.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(getMasterOutput());
 
   noise.start(time);
   noise.stop(time + 0.4);
@@ -154,7 +155,7 @@ function playBrush(ctx: AudioContext, time: number, volume: number = 0.15) {
 
   noise.connect(filter);
   filter.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(getMasterOutput());
 
   noise.start(time);
   noise.stop(time + 0.2);
@@ -242,7 +243,7 @@ function playClick(ctx: AudioContext, time: number, accent: boolean = false) {
 
   source.connect(filter);
   filter.connect(gain);
-  gain.connect(ctx.destination);
+  gain.connect(getMasterOutput());
 
   source.start(time);
   source.stop(time + 0.02);
@@ -677,6 +678,13 @@ export function Cadence() {
             </div>
           </div>
         </div>
+
+        {/* Visualizer */}
+        {progression.length > 0 && (
+          <div className="backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-1 mb-6 overflow-hidden">
+            <Visualizer isPlaying={isPlaying} genre={selectedGenre} mode={selectedMode} />
+          </div>
+        )}
 
         {/* Progression Display */}
         {progression.length > 0 && (

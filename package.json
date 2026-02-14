@@ -9,11 +9,13 @@
     "build": "bun run build.ts"
   },
   "dependencies": {
+    "@types/three": "^0.182.0",
     "bun-plugin-tailwind": "^0.1.2",
     "react": "^19",
     "react-dom": "^19",
     "react-router-dom": "^7.13.0",
-    "tailwindcss": "^4.1.11"
+    "tailwindcss": "^4.1.11",
+    "three": "^0.182.0"
   },
   "devDependencies": {
     "@types/react": "^19",
