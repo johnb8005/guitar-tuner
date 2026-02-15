@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { generateProgression, generateMelody, generateBassLine, getScaleDegreeFrequency, genres, keys, barOptions, modes, getChordName, loadPersonalizedMatrices, savePersonalizedMatrices, updateMelodyMatrix, resetMelodyMatrix, type Genre, type Mode, type ProgressionBar, type ScaleDegree, type BarChord, type MelodyBar, type BassBar, type MelodyTransition, type PersonalizedMatrices } from "./cadenceData";
 import { chords as allChords } from "./chordData";
 import { getAudioContext, getMasterOutput, playChord, playStrings, playHammond, playPiano, playMelodyNote, playBassNote } from "./audio";
 import { Visualizer } from "./Visualizer";
+import { BassTab } from "./BassTab";
 
 export type Instrument = "guitar" | "strings" | "hammond" | "piano";
 
@@ -312,6 +313,10 @@ export function Cadence() {
   const [melodyTransitions, setMelodyTransitions] = useState<MelodyTransition[]>([]);
   const [transitionsPerBar, setTransitionsPerBar] = useState<MelodyTransition[][]>([]);
   const [feedbackCount, setFeedbackCount] = useState(0); // Track how many times feedback given for current melody
+  const [showBassTab, setShowBassTab] = useState(false);
+  const [currentBeat, setCurrentBeat] = useState(0); // Beat position within current bar
+  const playbackStartRef = useRef<number>(0); // When playback of current bar started
+  const animationFrameRef = useRef<number | null>(null);
   const playTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playQueueRef = useRef<{ barIndex: number; chordIndex: number }[]>([]);
   const queueIndexRef = useRef(0);
@@ -595,6 +600,26 @@ export function Cadence() {
       playChordByName(chord.chordName, duration / 1000);
       setPlayingPosition({ bar: barIndex, chord: chordIndex });
 
+      // Start beat tracking for this bar (only on first chord)
+      if (chordIndex === 0) {
+        playbackStartRef.current = performance.now();
+        setCurrentBeat(0);
+
+        // Animation loop to update beat position
+        const updateBeat = () => {
+          const elapsed = performance.now() - playbackStartRef.current;
+          const currentBpm = bpmRef.current;
+          const msPerBeat = 60000 / currentBpm;
+          const beat = (elapsed / msPerBeat) % beatsPerBarRef.current;
+          setCurrentBeat(beat);
+          animationFrameRef.current = requestAnimationFrame(updateBeat);
+        };
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+        animationFrameRef.current = requestAnimationFrame(updateBeat);
+      }
+
       queueIndexRef.current = idx + 1;
 
       playTimeoutRef.current = setTimeout(playNext, duration);
@@ -608,8 +633,13 @@ export function Cadence() {
       clearTimeout(playTimeoutRef.current);
       playTimeoutRef.current = null;
     }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
     setIsPlaying(false);
     setPlayingPosition(null);
+    setCurrentBeat(0);
   }, []);
 
   const selectedGenreConfig = genres.find(g => g.id === selectedGenre);
@@ -870,6 +900,19 @@ export function Cadence() {
                   <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
                 </svg>
                 Bass
+              </button>
+              <button
+                onClick={() => setShowBassTab(!showBassTab)}
+                className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 flex items-center gap-1.5
+                  ${showBassTab
+                    ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md"
+                    : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
+                  }`}
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+                Tab
               </button>
             </div>
 
@@ -1159,6 +1202,21 @@ export function Cadence() {
                 </span>
               </div>
             </div>
+
+            {/* Bass Tab Display */}
+            {showBassTab && bassLine.length > 0 && (
+              <div className="mt-6">
+                <BassTab
+                  bassLine={bassLine}
+                  currentBar={playingPosition?.bar ?? 0}
+                  currentBeat={currentBeat}
+                  isPlaying={isPlaying}
+                  selectedKey={selectedKey}
+                  mode={selectedMode}
+                  beatsPerBar={beatsPerBar}
+                />
+              </div>
+            )}
           </div>
         )}
 
