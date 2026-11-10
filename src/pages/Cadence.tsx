@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { generateProgression, generateMelody, generateBassLine, getScaleDegreeFrequency, genres, keys, barOptions, modes, getChordName, loadPersonalizedMatrices, savePersonalizedMatrices, updateMelodyMatrix, resetMelodyMatrix, type Genre, type Mode, type ProgressionBar, type ScaleDegree, type BarChord, type MelodyBar, type BassBar, type MelodyTransition, type PersonalizedMatrices } from "./cadenceData";
-import { chords as allChords } from "./chordData";
-import { getAudioContext, getMasterOutput, playChord, playStrings, playHammond, playPiano, playMelodyNote, playBassNote } from "./audio";
-import { Visualizer } from "./Visualizer";
-import { BassTab } from "./BassTab";
+import { generateProgression, generateMelody, generateBassLine, getScaleDegreeFrequency, genres, keys, barOptions, modes, getChordName, loadPersonalizedMatrices, savePersonalizedMatrices, updateMelodyMatrix, resetMelodyMatrix, type Genre, type Mode, type ProgressionBar, type ScaleDegree, type BarChord, type MelodyBar, type BassBar, type MelodyTransition, type PersonalizedMatrices } from "../data/cadenceData";
+import { chords as allChords } from "../data/chordData";
+import { getAudioContext, getMasterOutput, playChord, playStrings, playHammond, playPiano, playMelodyNote, playBassNote } from "../lib/audio";
+import { Visualizer } from "../components/Visualizer";
+import { BassTab } from "../components/BassTab";
 
 export type Instrument = "guitar" | "strings" | "hammond" | "piano";
 

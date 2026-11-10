@@ -122,6 +122,12 @@ const entrypoints = [...new Bun.Glob("**.html").scanSync("src")]
   .filter(dir => !dir.includes("node_modules"));
 console.log(`📄 Found ${entrypoints.length} HTML ${entrypoints.length === 1 ? "file" : "files"} to process\n`);
 
+// Sub-path the site is served from, e.g. "/guitar-tuner/" on GitHub Pages.
+// Defaults to "/" so the build also works at a domain root.
+const rawBasePath = process.env.BASE_PATH || "/";
+const basePath = `/${rawBasePath.replace(/^\/+|\/+$/g, "")}/`.replace(/^\/\/$/, "/");
+console.log(`🌐 Base path: ${basePath}\n`);
+
 const result = await Bun.build({
   entrypoints,
   outdir,
@@ -129,8 +135,10 @@ const result = await Bun.build({
   minify: true,
   target: "browser",
   sourcemap: "linked",
+  publicPath: basePath,
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
+    __BASE_PATH__: JSON.stringify(basePath.replace(/\/$/, "") || "/"),
   },
   ...cliConfig,
 });
@@ -144,6 +152,18 @@ const outputTable = result.outputs.map(output => ({
 }));
 
 console.table(outputTable);
+
+if (!result.success) {
+  for (const log of result.logs) console.error(log);
+  process.exit(1);
+}
+
+// Static hosts like GitHub Pages have no SPA fallback: serving index.html as
+// 404.html lets deep links such as /cadence load the app.
+const indexHtml = path.join(outdir, "index.html");
+if (existsSync(indexHtml)) {
+  await Bun.write(path.join(outdir, "404.html"), Bun.file(indexHtml));
+}
 const buildTime = (end - start).toFixed(2);
 
 console.log(`\n✅ Build completed in ${buildTime}ms\n`);

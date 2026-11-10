@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { chords, baseNotes, categories, categoryOrder, type Chord } from "./chordData";
-import { getAudioContext, playChord } from "./audio";
+import { chords, baseNotes, categories, categoryOrder, type Chord } from "../data/chordData";
+import { getAudioContext, playChord } from "../lib/audio";
 
 function ChordDiagram({ chord }: { chord: Chord }) {
   const stringCount = 6;

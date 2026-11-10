@@ -2,7 +2,10 @@
 
 A web-based guitar tuner with pitch detection, plus **Cadence** - a Markov chain chord progression generator with melody, bass, and drums.
 
-**Live demo:** https://deploy.nexys.io/guitar-tuner
+[![Deploy to GitHub Pages](https://github.com/johnb8005/guitar-tuner/actions/workflows/deploy.yml/badge.svg)](https://github.com/johnb8005/guitar-tuner/actions/workflows/deploy.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+**Live demo:** https://johnb8005.github.io/guitar-tuner/
 
 ## Features
 
@@ -24,22 +27,53 @@ A web-based guitar tuner with pitch detection, plus **Cadence** - a Markov chain
 - **Embellishments** - Automatic 7th chords and chord splits at phrase endings
 - **Editable progressions** - Click any chord to swap it, split bars, add/remove bars
 
-## Development
+## Getting started
+
+You need [Bun](https://bun.sh) 1.2 or newer.
 
 ```bash
-# Install dependencies
-bun install
-
-# Start dev server
-bun dev
-
-# Build for production
-bun run build
+bun install      # install dependencies
+bun dev          # start the dev server with hot reloading
+bun run build    # build the static site into dist/
 ```
 
-## Tech Stack
+The dev server runs at http://localhost:3000 (set `PORT` to change it). Microphone access for the tuner needs `localhost` or HTTPS.
 
-- Bun
-- React 19
+To build for a sub-path, set `BASE_PATH`, for example `BASE_PATH=/guitar-tuner/ bun run build`. Without it the site is built for the domain root.
+
+## Project structure
+
+```
+src/
+  index.html          HTML entry point
+  main.tsx            React entry: router and routes
+  server.ts           Bun dev server (not used in production)
+  index.css           Tailwind and global styles
+  pages/              One component per route: Tuner, Chords, Cadence
+  components/         Shared UI: Layout, Visualizer, BassTab
+  lib/audio.ts        Web Audio synthesis (Karplus-Strong, piano, strings, organ, drums)
+  data/               Chord shapes and the Markov models for progressions, melody and bass
+build.ts              Production build (static site + 404.html SPA fallback)
+```
+
+## Deployment
+
+Every push to `main` builds the site and publishes it to GitHub Pages with the workflow in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Pull requests run the build only.
+
+To enable it on a fork, open **Settings → Pages** and set **Source** to **GitHub Actions**. The workflow sets `BASE_PATH` to the repository name, so the site works at `https://<owner>.github.io/<repo>/`.
+
+## Tech stack
+
+- [Bun](https://bun.sh) for the dev server, bundler and package manager
+- React 19 and React Router
 - Tailwind CSS 4
 - Web Audio API
+- three.js for the visualizer
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[MIT](LICENSE)

@@ -1,11 +1,21 @@
 {
-  "name": "bun-react-template",
+  "name": "guitar-tuner",
   "version": "0.1.0",
+  "description": "Guitar tuner and Markov-chain chord progression composer built with Bun, React and the Web Audio API.",
+  "license": "MIT",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnb8005/guitar-tuner.git"
+  },
+  "homepage": "https://johnb8005.github.io/guitar-tuner/",
+  "bugs": {
+    "url": "https://github.com/johnb8005/guitar-tuner/issues"
+  },
   "scripts": {
-    "dev": "bun --hot src/index.ts",
-    "start": "NODE_ENV=production bun src/index.ts",
+    "dev": "bun --hot src/server.ts",
+    "start": "NODE_ENV=production bun src/server.ts",
     "build": "bun run build.ts"
   },
   "dependencies": {
