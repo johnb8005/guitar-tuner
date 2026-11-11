@@ -390,8 +390,17 @@ export class LinearTS {
 }
 
 /** What the composer needs from the model: a θ draw per decision. */
-export type Taste = { draw: (rng: Rng) => number[] };
+/**
+ * A snapshot of the learned taste that the composer can draw weight vectors
+ * from. `ratings` is how many ratings the model had when the snapshot was
+ * taken: the composer ignores a taste with no ratings, so switching learning on
+ * changes nothing until you have rated something.
+ */
+export type Taste = { draw: (rng: Rng) => number[]; ratings: number };
 
 export function tasteFrom(model: LinearTS, exploration: number): Taste {
-  return { draw: (rng) => model.sample(rng, exploration) };
+  return {
+    draw: (rng) => model.sample(rng, exploration),
+    ratings: model.n,
+  };
 }

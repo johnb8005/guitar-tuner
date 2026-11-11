@@ -47,6 +47,33 @@ describe("composing with a taste", () => {
     expect(a.barFeatures[0]!.length).toBe(DIM);
   });
 
+  test("loops change only when the model has new ratings", () => {
+    const s = defaultSettings("pop", 5);
+    const plain = compose(s);
+    // Learning on but nothing rated yet: identical to the plain piece.
+    const model = new LinearTS();
+    const untaught = compose(s, { taste: tasteFrom(model, 0.5), take: 1 });
+    expect(untaught.notes).toEqual(plain.notes);
+    expect(untaught.drums).toEqual(plain.drums);
+
+    // Rate a few bars, then write two more takes with the same ratings:
+    // the take number alone never changes the music.
+    plain.barFeatures
+      .slice(0, 6)
+      .forEach((phi, bar) =>
+        model.update(phi, bar % 2 ? 1 : -1, { at: bar, take: 0, bar }),
+      );
+    const a = compose(s, { taste: tasteFrom(model, 0.5), take: 2 });
+    const b = compose(s, { taste: tasteFrom(model, 0.5), take: 7 });
+    expect(a.notes).toEqual(b.notes);
+    expect(a.tasteRatings).toBe(6);
+
+    // Accompaniment that the model does not judge (drums) never changes.
+    expect(a.drums.filter((d) => d.time < 4)).toEqual(
+      plain.drums.filter((d) => d.time < 4),
+    );
+  });
+
   test("a simulated listener steers the music toward what they like", () => {
     // Listener who loves busy, stepwise melodies and dislikes big leaps.
     const likes = (phi: number[]) =>

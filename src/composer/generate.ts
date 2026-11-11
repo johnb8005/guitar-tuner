@@ -119,6 +119,8 @@ export type Piece = {
   beats: number;
   beatsPerBar: number;
   take: number;
+  /** Number of ratings the taste model had when this piece was written. */
+  tasteRatings: number;
   /** Feature vector of every bar (for learning from feedback). */
   barFeatures: number[][];
 };
@@ -128,18 +130,17 @@ export const BEATS_PER_BAR = 4;
 export type ComposeOptions = {
   /** Learned taste: when present, candidates are chosen by Thompson sampling. */
   taste?: Taste;
-  /** Take number: each take re-rolls the parts, so a loop can evolve. */
+  /** Take number: a label for which version of the taste wrote this piece. */
   take?: number;
 };
 
-/** Seed of a part, varied per take. */
-function partSeed(
-  settings: Settings,
-  part: keyof Settings["partSeeds"],
-  take: number,
-) {
-  const base = settings.partSeeds[part] ?? deriveSeed(settings.seed, part);
-  return take ? deriveSeed(base, `take${take}`) : base;
+/**
+ * Seed of a part. It deliberately does not depend on the take: from one take
+ * to the next only the learned taste changes, so the music changes only
+ * because of your ratings.
+ */
+function partSeed(settings: Settings, part: keyof Settings["partSeeds"]) {
+  return settings.partSeeds[part] ?? deriveSeed(settings.seed, part);
 }
 
 /** Candidates per decision when a taste model is steering. */
@@ -340,12 +341,11 @@ function generateHarmony(
   settings: Settings,
   style: StyleDef,
   sections: Section[],
-  take: number,
   taste?: Taste,
 ): Slot[][] {
-  const rng = createRng(partSeed(settings, "harmony", take));
+  const rng = createRng(partSeed(settings, "harmony"));
   const tasteRng = createRng(
-    deriveSeed(partSeed(settings, "harmony", take), "taste"),
+    deriveSeed(partSeed(settings, "harmony"), "taste"),
   );
   const key: Key = { tonic: settings.tonic, scale: settings.scale };
   // Thompson sampling: one θ draw per section decision, scored on harmony traits.
@@ -1239,13 +1239,17 @@ export function buildSections(bars: number): Section[] {
 
 export function compose(settings: Settings, opts: ComposeOptions = {}): Piece {
   const take = opts.take ?? 0;
-  const taste = opts.taste;
+  // A taste with no ratings has nothing to say yet: write the plain piece.
+  // The θ draws below come from fixed seeds (common random numbers), so the
+  // same ratings always give the same piece and a new piece differs from the
+  // last one only because the model moved.
+  const taste = opts.taste && opts.taste.ratings > 0 ? opts.taste : undefined;
   const style = getStyle(settings.style);
   const key: Key = { tonic: settings.tonic, scale: settings.scale };
   const sections = buildSections(settings.bars);
 
   // Harmony
-  const harmony = generateHarmony(settings, style, sections, take, taste);
+  const harmony = generateHarmony(settings, style, sections, taste);
   const chords: ChordSlot[] = [];
   harmony.forEach((slots, si) => {
     const offset = sections[si]!.startBar * BEATS_PER_BAR;
@@ -1274,13 +1278,14 @@ export function compose(settings: Settings, opts: ComposeOptions = {}): Piece {
     beats: settings.bars * BEATS_PER_BAR,
     beatsPerBar: BEATS_PER_BAR,
     take,
+    tasteRatings: taste?.ratings ?? 0,
     barFeatures: [],
   };
 
   // Melody
-  const melRng = createRng(partSeed(settings, "melody", take));
+  const melRng = createRng(partSeed(settings, "melody"));
   const melTasteRng = createRng(
-    deriveSeed(partSeed(settings, "melody", take), "taste"),
+    deriveSeed(partSeed(settings, "melody"), "taste"),
   );
   const temperature = temperatureFor(settings.creativity);
   const [low, high] = style.melodyRange;
@@ -1433,9 +1438,9 @@ export function compose(settings: Settings, opts: ComposeOptions = {}): Piece {
   );
 
   // Accompaniment
-  const compRng = createRng(partSeed(settings, "comp", take));
-  const bassRng = createRng(partSeed(settings, "bass", take));
-  const drumRng = createRng(partSeed(settings, "drums", take));
+  const compRng = createRng(partSeed(settings, "comp"));
+  const bassRng = createRng(partSeed(settings, "bass"));
+  const drumRng = createRng(partSeed(settings, "drums"));
   const { keys, pads } = generateComp(piece, compRng, style);
   const bass = generateBass(piece, bassRng, style, 0.3);
   const arp = generateArp(piece, style).filter(

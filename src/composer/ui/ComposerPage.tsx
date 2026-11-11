@@ -82,7 +82,9 @@ export function ComposerPage() {
     [makePiece, settings, take, learning, exploration],
   );
 
-  // At the end of each loop, compose the next take with the updated model.
+  // At the end of each loop, rewrite the piece only if there are new ratings.
+  // Without new feedback the loop replays exactly; with it, the only thing
+  // that changes is what the updated model chooses.
   const live = useRef({
     settings,
     take,
@@ -90,12 +92,24 @@ export function ComposerPage() {
     evolve,
     exploration,
     makePiece,
+    piece,
+    model: taste.model,
   });
-  live.current = { settings, take, learning, evolve, exploration, makePiece };
+  live.current = {
+    settings,
+    take,
+    learning,
+    evolve,
+    exploration,
+    makePiece,
+    piece,
+    model: taste.model,
+  };
   useEffect(() => {
     engine.onLoopEnd = () => {
       const l = live.current;
       if (!l.learning || !l.evolve) return null;
+      if (l.model.n === l.piece.tasteRatings) return null;
       const next = l.makePiece(l.settings, l.take + 1, true, l.exploration);
       l.take = l.take + 1;
       setTake(l.take);
@@ -803,6 +817,7 @@ export function ComposerPage() {
               setExploration={setExploration}
               onReset={taste.reset}
               onNextTake={() => setTake((t) => t + 1)}
+              pendingRatings={learning ? taste.model.n - piece.tasteRatings : 0}
               take={piece.take}
               styleName={piece.style.name}
             />

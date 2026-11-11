@@ -138,6 +138,8 @@ type Props = {
   onReset: () => void;
   onNextTake: () => void;
   take: number;
+  /** Ratings given since the playing take was written. */
+  pendingRatings: number;
   styleName: string;
 };
 
@@ -178,7 +180,7 @@ export function TastePanel(props: Props) {
           onChange={props.setLearning}
         />
         <Toggle
-          label="New take every loop"
+          label="Apply ratings each loop"
           checked={props.evolve}
           onChange={props.setEvolve}
           disabled={!props.learning}
@@ -197,10 +199,15 @@ export function TastePanel(props: Props) {
         <div className="flex gap-2">
           <button
             onClick={props.onNextTake}
-            disabled={!props.learning}
+            disabled={!props.learning || props.pendingRatings <= 0}
+            title={
+              props.pendingRatings > 0
+                ? `Rewrite now using ${props.pendingRatings} new rating${props.pendingRatings === 1 ? "" : "s"}`
+                : "Rate something first: the music only changes from your ratings"
+            }
             className="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-200 ring-1 ring-emerald-400/30 hover:bg-emerald-500/25 disabled:opacity-40"
           >
-            Next take
+            Apply now
           </button>
           <button
             onClick={() => {
@@ -239,11 +246,12 @@ export function TastePanel(props: Props) {
         <p className="rounded-xl border border-dashed border-white/10 p-3 text-xs leading-relaxed text-zinc-400">
           Press play and hit 👍 / 👎 (or ↑ / ↓) whenever a bar grabs you or bugs
           you. Each rating updates a Bayesian linear model over{" "}
-          {FEATURES.length} traits of that bar. At the end of every loop the
-          composer writes a new take: the Markov chains propose several
-          candidate progressions and melodies, a weight vector is drawn from the
-          model (Thompson sampling) and the candidates it predicts you will like
-          best are played.
+          {FEATURES.length} traits of that bar. The loop replays exactly as it
+          is until you rate something. At the end of a loop with new ratings,
+          the composer chooses again among the same Markov candidate
+          progressions and melodies, keeping the ones the updated model
+          (Thompson sampling) predicts you will like best. Nothing else changes,
+          so every difference you hear comes from your feedback.
         </p>
       )}
 
