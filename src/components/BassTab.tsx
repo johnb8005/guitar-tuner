@@ -1,4 +1,4 @@
-import { type BassBar, type Mode } from "./cadenceData";
+import { type BassBar, type Mode } from "../data/cadenceData";
 
 // Bass string tunings (MIDI note numbers) - Standard 4-string: E-A-D-G
 const BASS_STRINGS = [

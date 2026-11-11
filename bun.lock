@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "bun-react-template",
+      "name": "guitar-tuner",
       "dependencies": {
         "@types/three": "^0.182.0",
         "bun-plugin-tailwind": "^0.1.2",
