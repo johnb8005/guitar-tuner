@@ -353,7 +353,7 @@ function CircularGauge({ cents, isInTune }: { cents: number; isInTune: boolean }
 // Waveform visualizer
 function WaveformVisualizer({ analyser }: { analyser: AnalyserNode | null }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!analyser || !canvasRef.current) return;

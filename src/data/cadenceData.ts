@@ -562,7 +562,7 @@ const melodyRhythmPatterns: Record<Genre, RhythmPattern[]> = {
 };
 
 // Find the nearest chord tone to a given degree (for smooth voice leading)
-function nearestChordTone(currentDegree: number, chordTones: number[]): number {
+function nearestChordTone(currentDegree: number, chordTones: number[]): ScaleDegree {
   let nearest = chordTones[0];
   let minDistance = 7;
 
@@ -578,15 +578,15 @@ function nearestChordTone(currentDegree: number, chordTones: number[]): number {
       nearest = tone;
     }
   }
-  return nearest;
+  return nearest as ScaleDegree;
 }
 
 // Get approach note (one step below or above target)
-function getApproachNote(targetDegree: number): number {
+function getApproachNote(targetDegree: number): ScaleDegree {
   // 50% chance approach from below, 50% from above
-  return Math.random() < 0.5
+  return (Math.random() < 0.5
     ? (targetDegree - 1 + 7) % 7
-    : (targetDegree + 1) % 7;
+    : (targetDegree + 1) % 7) as ScaleDegree;
 }
 
 // ============ MELODY BANDIT LEARNING ============
@@ -781,7 +781,7 @@ export function generateMelody(
       }
       else {
         // Weak beats: Markov chain for melodic motion
-        const nextDegree = sampleFromDistribution(matrix[currentDegree]);
+        const nextDegree = sampleFromDistribution(matrix[currentDegree]) as ScaleDegree;
         currentDegree = nextDegree;
       }
 

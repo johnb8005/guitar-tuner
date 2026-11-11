@@ -43,12 +43,14 @@ Also included: a guitar tuner with pitch detection, a chord library, and **Caden
 
 ## Getting started
 
-You need [Bun](https://bun.sh) 1.2 or newer.
+You need [Bun](https://bun.sh) 1.4.4 or newer.
 
 ```bash
 bun install      # install dependencies
 bun dev          # start the dev server with hot reloading
 bun run build    # build the static site into dist/
+bun check        # type check (replaces tsc)
+bun fmt          # format the code (bun fmt --check to verify only)
 ```
 
 The dev server runs at http://localhost:3000 (set `PORT` to change it). Microphone access for the tuner needs `localhost` or HTTPS.
@@ -73,7 +75,7 @@ build.ts              Production build (static site + 404.html SPA fallback)
 
 ## Deployment
 
-Every push to `main` builds the site and publishes it to GitHub Pages with the workflow in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Pull requests run the build only.
+Every push to `main` builds the site and publishes it to GitHub Pages with the workflow in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Pull requests run `bun check`, `bun fmt --check` and the build, without deploying.
 
 To enable it on a fork, open **Settings → Pages** and set **Source** to **GitHub Actions**. The workflow sets `BASE_PATH` to the repository name, so the site works at `https://<owner>.github.io/<repo>/`.
 
