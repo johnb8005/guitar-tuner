@@ -4,11 +4,25 @@
 import type { DrumId } from "../generate";
 import { decay, filter, gain, noise, osc, shaper, type Ctx } from "./dsp";
 
-export type KitId = "acoustic-kit" | "lofi-kit" | "jazz-kit" | "electro-kit" | "taiko-kit";
+export type KitId =
+  "acoustic-kit" | "lofi-kit" | "jazz-kit" | "electro-kit" | "taiko-kit";
 
 type KitParams = {
-  kick: { start: number; end: number; sweep: number; decay: number; click: number; drive: number };
-  snare: { tone: number; noiseDecay: number; toneDecay: number; noiseLevel: number; brushy?: boolean };
+  kick: {
+    start: number;
+    end: number;
+    sweep: number;
+    decay: number;
+    click: number;
+    drive: number;
+  };
+  snare: {
+    tone: number;
+    noiseDecay: number;
+    toneDecay: number;
+    noiseLevel: number;
+    brushy?: boolean;
+  };
   hatFreq: number;
   hatDecay: number;
   toms: [number, number, number];
@@ -17,7 +31,14 @@ type KitParams = {
 
 const KITS: Record<KitId, KitParams> = {
   "acoustic-kit": {
-    kick: { start: 130, end: 52, sweep: 0.06, decay: 0.42, click: 0.5, drive: 1.5 },
+    kick: {
+      start: 130,
+      end: 52,
+      sweep: 0.06,
+      decay: 0.42,
+      click: 0.5,
+      drive: 1.5,
+    },
     snare: { tone: 190, noiseDecay: 0.2, toneDecay: 0.09, noiseLevel: 0.55 },
     hatFreq: 8500,
     hatDecay: 0.05,
@@ -25,7 +46,14 @@ const KITS: Record<KitId, KitParams> = {
     tomDecay: 0.45,
   },
   "lofi-kit": {
-    kick: { start: 110, end: 48, sweep: 0.07, decay: 0.38, click: 0.25, drive: 2.5 },
+    kick: {
+      start: 110,
+      end: 48,
+      sweep: 0.07,
+      decay: 0.38,
+      click: 0.25,
+      drive: 2.5,
+    },
     snare: { tone: 175, noiseDecay: 0.16, toneDecay: 0.08, noiseLevel: 0.45 },
     hatFreq: 7000,
     hatDecay: 0.04,
@@ -33,15 +61,35 @@ const KITS: Record<KitId, KitParams> = {
     tomDecay: 0.35,
   },
   "jazz-kit": {
-    kick: { start: 95, end: 55, sweep: 0.05, decay: 0.3, click: 0.15, drive: 1 },
-    snare: { tone: 210, noiseDecay: 0.28, toneDecay: 0.05, noiseLevel: 0.35, brushy: true },
+    kick: {
+      start: 95,
+      end: 55,
+      sweep: 0.05,
+      decay: 0.3,
+      click: 0.15,
+      drive: 1,
+    },
+    snare: {
+      tone: 210,
+      noiseDecay: 0.28,
+      toneDecay: 0.05,
+      noiseLevel: 0.35,
+      brushy: true,
+    },
     hatFreq: 9000,
     hatDecay: 0.06,
     toms: [110, 145, 190],
     tomDecay: 0.4,
   },
   "electro-kit": {
-    kick: { start: 160, end: 44, sweep: 0.09, decay: 0.75, click: 0.35, drive: 2.8 },
+    kick: {
+      start: 160,
+      end: 44,
+      sweep: 0.09,
+      decay: 0.75,
+      click: 0.35,
+      drive: 2.8,
+    },
     snare: { tone: 200, noiseDecay: 0.32, toneDecay: 0.12, noiseLevel: 0.7 },
     hatFreq: 9500,
     hatDecay: 0.035,
@@ -49,7 +97,14 @@ const KITS: Record<KitId, KitParams> = {
     tomDecay: 0.5,
   },
   "taiko-kit": {
-    kick: { start: 90, end: 40, sweep: 0.1, decay: 0.9, click: 0.3, drive: 1.3 },
+    kick: {
+      start: 90,
+      end: 40,
+      sweep: 0.1,
+      decay: 0.9,
+      click: 0.3,
+      drive: 1.3,
+    },
     snare: { tone: 160, noiseDecay: 0.2, toneDecay: 0.15, noiseLevel: 0.3 },
     hatFreq: 7000,
     hatDecay: 0.05,
@@ -61,7 +116,16 @@ const KITS: Record<KitId, KitParams> = {
 // Inharmonic square cluster (808-style metal) for hats, rides and crashes
 const METAL = [1, 1.342, 1.2312, 1.6532, 1.9523, 2.1523];
 
-function metal(ctx: Ctx, out: AudioNode, time: number, base: number, hp: number, bp: number, level: number, decayTime: number) {
+function metal(
+  ctx: Ctx,
+  out: AudioNode,
+  time: number,
+  base: number,
+  hp: number,
+  bp: number,
+  level: number,
+  decayTime: number,
+) {
   const mix = gain(ctx, 0);
   const end = decay(mix.gain, time, level, 0.001, decayTime);
   const band = filter(ctx, "bandpass", bp, 0.9);
@@ -79,7 +143,14 @@ function metal(ctx: Ctx, out: AudioNode, time: number, base: number, hp: number,
   band.connect(high).connect(mix).connect(out);
 }
 
-export function playDrum(ctx: Ctx, out: AudioNode, kitId: KitId, drum: DrumId, time: number, vel: number) {
+export function playDrum(
+  ctx: Ctx,
+  out: AudioNode,
+  kitId: KitId,
+  drum: DrumId,
+  time: number,
+  vel: number,
+) {
   const kit = KITS[kitId] ?? KITS["acoustic-kit"];
   const v = Math.pow(vel, 1.3);
   switch (drum) {
@@ -151,17 +222,41 @@ export function playDrum(ctx: Ctx, out: AudioNode, kitId: KitId, drum: DrumId, t
       o.frequency.setValueAtTime(s.tone * 1.5, time);
       o.frequency.exponentialRampToValueAtTime(s.tone, time + 0.02);
       const og = gain(ctx, 0);
-      const end = decay(og.gain, time, (s.brushy ? 0.2 : 0.55) * v, 0.001, s.toneDecay);
+      const end = decay(
+        og.gain,
+        time,
+        (s.brushy ? 0.2 : 0.55) * v,
+        0.001,
+        s.toneDecay,
+      );
       o.connect(og).connect(out);
       o.start(time);
       o.stop(end);
       break;
     }
     case "hatClosed":
-      metal(ctx, out, time, 40 * 8.2, kit.hatFreq * 0.85, kit.hatFreq, 0.28 * v, kit.hatDecay);
+      metal(
+        ctx,
+        out,
+        time,
+        40 * 8.2,
+        kit.hatFreq * 0.85,
+        kit.hatFreq,
+        0.28 * v,
+        kit.hatDecay,
+      );
       break;
     case "hatOpen":
-      metal(ctx, out, time, 40 * 8.2, kit.hatFreq * 0.8, kit.hatFreq, 0.22 * v, 0.32);
+      metal(
+        ctx,
+        out,
+        time,
+        40 * 8.2,
+        kit.hatFreq * 0.8,
+        kit.hatFreq,
+        0.22 * v,
+        0.32,
+      );
       break;
     case "shaker": {
       const n = noise(ctx, time, 0.1);
@@ -208,9 +303,20 @@ export function playDrum(ctx: Ctx, out: AudioNode, kitId: KitId, drum: DrumId, t
       o.start(time);
       o.stop(end);
       const n = noise(ctx, time, 0.08);
-      const lp = filter(ctx, "lowpass", kitId === "taiko-kit" ? 900 : 2500, 0.7);
+      const lp = filter(
+        ctx,
+        "lowpass",
+        kitId === "taiko-kit" ? 900 : 2500,
+        0.7,
+      );
       const ng = gain(ctx, 0);
-      decay(ng.gain, time, (kitId === "taiko-kit" ? 0.5 : 0.2) * v, 0.001, 0.06);
+      decay(
+        ng.gain,
+        time,
+        (kitId === "taiko-kit" ? 0.5 : 0.2) * v,
+        0.001,
+        0.06,
+      );
       n.connect(lp).connect(ng).connect(out);
       break;
     }
@@ -218,7 +324,10 @@ export function playDrum(ctx: Ctx, out: AudioNode, kitId: KitId, drum: DrumId, t
 }
 
 /** Per-kit channel colouring (inserted before the drum channel fader). */
-export function kitInsert(ctx: Ctx, kitId: KitId): { input: AudioNode; output: AudioNode } {
+export function kitInsert(
+  ctx: Ctx,
+  kitId: KitId,
+): { input: AudioNode; output: AudioNode } {
   const input = gain(ctx, 1);
   if (kitId === "lofi-kit") {
     const lp = filter(ctx, "lowpass", 4200, 0.8);

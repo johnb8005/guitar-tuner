@@ -14,7 +14,11 @@ export function noiseBuffer(ctx: Ctx): AudioBuffer {
   return buf;
 }
 
-export function noise(ctx: Ctx, time: number, dur: number): AudioBufferSourceNode {
+export function noise(
+  ctx: Ctx,
+  time: number,
+  dur: number,
+): AudioBufferSourceNode {
   const src = ctx.createBufferSource();
   src.buffer = noiseBuffer(ctx);
   src.loop = true;
@@ -45,7 +49,12 @@ export function shaper(ctx: Ctx, drive: number): WaveShaperNode {
   return ws;
 }
 
-export function osc(ctx: Ctx, type: OscillatorType, freq: number, detune = 0): OscillatorNode {
+export function osc(
+  ctx: Ctx,
+  type: OscillatorType,
+  freq: number,
+  detune = 0,
+): OscillatorNode {
   const o = ctx.createOscillator();
   o.type = type;
   o.frequency.value = freq;
@@ -59,7 +68,12 @@ export function gain(ctx: Ctx, value = 1): GainNode {
   return g;
 }
 
-export function filter(ctx: Ctx, type: BiquadFilterType, freq: number, q = 0.7): BiquadFilterNode {
+export function filter(
+  ctx: Ctx,
+  type: BiquadFilterType,
+  freq: number,
+  q = 0.7,
+): BiquadFilterNode {
   const f = ctx.createBiquadFilter();
   f.type = type;
   f.frequency.value = freq;
@@ -79,7 +93,7 @@ export function adsr(
   a: number,
   d: number,
   s: number,
-  r: number
+  r: number,
 ): number {
   const sustain = Math.max(0.0001, peak * s);
   param.cancelScheduledValues(time);
@@ -100,7 +114,13 @@ export function adsr(
 }
 
 /** Percussive decay envelope (exponential), returns end time. */
-export function decay(param: AudioParam, time: number, peak: number, attack: number, decayTime: number): number {
+export function decay(
+  param: AudioParam,
+  time: number,
+  peak: number,
+  attack: number,
+  decayTime: number,
+): number {
   param.cancelScheduledValues(time);
   param.setValueAtTime(0.0001, time);
   param.linearRampToValueAtTime(peak, time + attack);
@@ -108,12 +128,20 @@ export function decay(param: AudioParam, time: number, peak: number, attack: num
   return time + attack + decayTime + 0.02;
 }
 
-export function stopAll(nodes: (AudioScheduledSourceNode | null | undefined)[], time: number) {
+export function stopAll(
+  nodes: (AudioScheduledSourceNode | null | undefined)[],
+  time: number,
+) {
   for (const n of nodes) n?.stop(time);
 }
 
 /** Procedural stereo reverb impulse with darkening tail and early reflections. */
-export function reverbImpulse(ctx: Ctx, seconds = 2.8, decaySpeed = 2.4, predelay = 0.018): AudioBuffer {
+export function reverbImpulse(
+  ctx: Ctx,
+  seconds = 2.8,
+  decaySpeed = 2.4,
+  predelay = 0.018,
+): AudioBuffer {
   const rate = ctx.sampleRate;
   const length = Math.floor(rate * seconds);
   const ir = ctx.createBuffer(2, length, rate);
@@ -132,7 +160,9 @@ export function reverbImpulse(ctx: Ctx, seconds = 2.8, decaySpeed = 2.4, predela
     const reflections = [0.007, 0.013, 0.019, 0.027, 0.041, 0.053];
     reflections.forEach((r, k) => {
       const idx = pre + Math.floor((r + ch * 0.0023) * rate);
-      if (idx < length) data[idx] = (data[idx] ?? 0) + (k % 2 ? -1 : 1) * 0.5 * Math.exp(-k * 0.35);
+      if (idx < length)
+        data[idx] =
+          (data[idx] ?? 0) + (k % 2 ? -1 : 1) * 0.5 * Math.exp(-k * 0.35);
     });
   }
   return ir;
@@ -143,8 +173,17 @@ export function reverbImpulse(ctx: Ctx, seconds = 2.8, decaySpeed = 2.4, predela
  * The loop length is an integer number of samples, so we return the playbackRate
  * that corrects the tiny tuning error.
  */
-const ksCache = new WeakMap<Ctx, Map<string, { buffer: AudioBuffer; rate: number }>>();
-export function karplus(ctx: Ctx, freq: number, seconds: number, brightness = 0.5, damping = 0.996) {
+const ksCache = new WeakMap<
+  Ctx,
+  Map<string, { buffer: AudioBuffer; rate: number }>
+>();
+export function karplus(
+  ctx: Ctx,
+  freq: number,
+  seconds: number,
+  brightness = 0.5,
+  damping = 0.996,
+) {
   let map = ksCache.get(ctx);
   if (!map) ksCache.set(ctx, (map = new Map()));
   const key = `${freq.toFixed(2)}:${seconds}:${brightness}:${damping}`;
@@ -167,7 +206,10 @@ export function karplus(ctx: Ctx, freq: number, seconds: number, brightness = 0.
   const mean = line.reduce((a, b) => a + b, 0) / L;
   for (let i = 0; i < L; i++) line[i]! -= mean;
   // Higher notes lose energy faster, like real strings
-  const loss = Math.min(0.9995, damping + (1 - damping) * Math.min(1, 110 / freq) * 0.5);
+  const loss = Math.min(
+    0.9995,
+    damping + (1 - damping) * Math.min(1, 110 / freq) * 0.5,
+  );
   let idx = 0;
   for (let i = 0; i < data.length; i++) {
     const a = line[idx]!;

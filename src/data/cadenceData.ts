@@ -4,10 +4,30 @@
 export type ScaleDegree = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 // Chromatic notes for transposition
-const chromaticNotes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const chromaticNotes = [
+  "C",
+  "C#",
+  "D",
+  "D#",
+  "E",
+  "F",
+  "F#",
+  "G",
+  "G#",
+  "A",
+  "A#",
+  "B",
+];
 
 // ============ MODES ============
-export type Mode = "ionian" | "dorian" | "phrygian" | "lydian" | "mixolydian" | "aeolian" | "locrian";
+export type Mode =
+  | "ionian"
+  | "dorian"
+  | "phrygian"
+  | "lydian"
+  | "mixolydian"
+  | "aeolian"
+  | "locrian";
 
 export type ModeConfig = {
   id: Mode;
@@ -79,7 +99,7 @@ export const modes: ModeConfig[] = [
 
 // Get mode config by id
 export function getModeConfig(mode: Mode): ModeConfig {
-  return modes.find(m => m.id === mode) || modes[0];
+  return modes.find((m) => m.id === mode) || modes[0];
 }
 
 // Legacy exports for backward compatibility
@@ -87,12 +107,16 @@ export const degreeNames = modes[0].degreeNames;
 export const degreeQualities = modes[0].qualities;
 
 // For jazz, we use 7th chords (based on Ionian)
-export const degreeQualities7th: ("maj7" | "m7" | "m7" | "maj7" | "7" | "m7" | "m7b5")[] = [
-  "maj7", "m7", "m7", "maj7", "7", "m7", "m7b5"
-];
+export const degreeQualities7th: (
+  "maj7" | "m7" | "m7" | "maj7" | "7" | "m7" | "m7b5"
+)[] = ["maj7", "m7", "m7", "maj7", "7", "m7", "m7b5"];
 
 // Get the root note for a scale degree in a given key and mode
-export function getChordRoot(key: string, degree: ScaleDegree, mode: Mode = "ionian"): string {
+export function getChordRoot(
+  key: string,
+  degree: ScaleDegree,
+  mode: Mode = "ionian",
+): string {
   const keyIndex = chromaticNotes.indexOf(key);
   const modeConfig = getModeConfig(mode);
   const noteIndex = (keyIndex + modeConfig.intervals[degree]) % 12;
@@ -108,7 +132,7 @@ export function getChordName(
   degree: ScaleDegree,
   use7ths: boolean = false,
   variant?: ChordVariant,
-  mode: Mode = "ionian"
+  mode: Mode = "ionian",
 ): string {
   const root = getChordRoot(key, degree, mode);
   const modeConfig = getModeConfig(mode);
@@ -139,10 +163,14 @@ export function getChordName(
 
   // Default - just the triad
   switch (baseQuality) {
-    case "major": return root;
-    case "minor": return root + "m";
-    case "dim": return root + "dim7";
-    default: return root;
+    case "major":
+      return root;
+    case "minor":
+      return root + "m";
+    case "dim":
+      return root + "dim7";
+    default:
+      return root;
   }
 }
 
@@ -164,11 +192,51 @@ export type GenreConfig = {
 };
 
 export const genres: GenreConfig[] = [
-  { id: "pop", name: "Pop", description: "I-IV-V-vi progressions", use7ths: false, embellishmentChance: 0.15, phraseEndBonus: 0.3, dominantAlways7: false },
-  { id: "jazz", name: "Jazz", description: "ii-V-I with 7th chords", use7ths: true, embellishmentChance: 0.4, phraseEndBonus: 0.4, dominantAlways7: true },
-  { id: "blues", name: "Blues", description: "12-bar dominant feel", use7ths: false, embellishmentChance: 0.5, phraseEndBonus: 0.3, dominantAlways7: true },
-  { id: "rock", name: "Rock", description: "Power progressions", use7ths: false, embellishmentChance: 0.1, phraseEndBonus: 0.2, dominantAlways7: false },
-  { id: "classical", name: "Classical", description: "Voice-leading focused", use7ths: false, embellishmentChance: 0.2, phraseEndBonus: 0.4, dominantAlways7: true },
+  {
+    id: "pop",
+    name: "Pop",
+    description: "I-IV-V-vi progressions",
+    use7ths: false,
+    embellishmentChance: 0.15,
+    phraseEndBonus: 0.3,
+    dominantAlways7: false,
+  },
+  {
+    id: "jazz",
+    name: "Jazz",
+    description: "ii-V-I with 7th chords",
+    use7ths: true,
+    embellishmentChance: 0.4,
+    phraseEndBonus: 0.4,
+    dominantAlways7: true,
+  },
+  {
+    id: "blues",
+    name: "Blues",
+    description: "12-bar dominant feel",
+    use7ths: false,
+    embellishmentChance: 0.5,
+    phraseEndBonus: 0.3,
+    dominantAlways7: true,
+  },
+  {
+    id: "rock",
+    name: "Rock",
+    description: "Power progressions",
+    use7ths: false,
+    embellishmentChance: 0.1,
+    phraseEndBonus: 0.2,
+    dominantAlways7: false,
+  },
+  {
+    id: "classical",
+    name: "Classical",
+    description: "Voice-leading focused",
+    use7ths: false,
+    embellishmentChance: 0.2,
+    phraseEndBonus: 0.4,
+    dominantAlways7: true,
+  },
 ];
 
 // Transition matrices: transitionMatrix[from][to] = probability
@@ -176,71 +244,71 @@ export const transitionMatrices: Record<Genre, number[][]> = {
   // Pop: Very predictable, lots of I-IV-V-vi
   pop: [
     //  I     ii    iii   IV    V     vi    vii°
-    [0.05, 0.10, 0.05, 0.35, 0.25, 0.20, 0.00], // from I
-    [0.15, 0.05, 0.05, 0.15, 0.45, 0.15, 0.00], // from ii
-    [0.10, 0.10, 0.05, 0.35, 0.10, 0.30, 0.00], // from iii
-    [0.30, 0.10, 0.05, 0.05, 0.35, 0.15, 0.00], // from IV
-    [0.50, 0.05, 0.05, 0.15, 0.05, 0.20, 0.00], // from V
-    [0.15, 0.15, 0.10, 0.35, 0.20, 0.05, 0.00], // from vi
-    [0.60, 0.10, 0.05, 0.10, 0.10, 0.05, 0.00], // from vii°
+    [0.05, 0.1, 0.05, 0.35, 0.25, 0.2, 0.0], // from I
+    [0.15, 0.05, 0.05, 0.15, 0.45, 0.15, 0.0], // from ii
+    [0.1, 0.1, 0.05, 0.35, 0.1, 0.3, 0.0], // from iii
+    [0.3, 0.1, 0.05, 0.05, 0.35, 0.15, 0.0], // from IV
+    [0.5, 0.05, 0.05, 0.15, 0.05, 0.2, 0.0], // from V
+    [0.15, 0.15, 0.1, 0.35, 0.2, 0.05, 0.0], // from vi
+    [0.6, 0.1, 0.05, 0.1, 0.1, 0.05, 0.0], // from vii°
   ],
 
   // Jazz: ii-V-I dominant, more complex movements
   jazz: [
     //  I     ii    iii   IV    V     vi    vii°
-    [0.05, 0.30, 0.10, 0.20, 0.10, 0.20, 0.05], // from I
-    [0.10, 0.05, 0.05, 0.10, 0.60, 0.05, 0.05], // from ii (strongly to V)
-    [0.10, 0.15, 0.05, 0.15, 0.15, 0.35, 0.05], // from iii
-    [0.20, 0.20, 0.10, 0.05, 0.25, 0.15, 0.05], // from IV
-    [0.55, 0.15, 0.05, 0.10, 0.05, 0.05, 0.05], // from V (strongly to I)
-    [0.15, 0.40, 0.05, 0.15, 0.15, 0.05, 0.05], // from vi (often to ii)
-    [0.50, 0.15, 0.10, 0.10, 0.10, 0.05, 0.00], // from vii°
+    [0.05, 0.3, 0.1, 0.2, 0.1, 0.2, 0.05], // from I
+    [0.1, 0.05, 0.05, 0.1, 0.6, 0.05, 0.05], // from ii (strongly to V)
+    [0.1, 0.15, 0.05, 0.15, 0.15, 0.35, 0.05], // from iii
+    [0.2, 0.2, 0.1, 0.05, 0.25, 0.15, 0.05], // from IV
+    [0.55, 0.15, 0.05, 0.1, 0.05, 0.05, 0.05], // from V (strongly to I)
+    [0.15, 0.4, 0.05, 0.15, 0.15, 0.05, 0.05], // from vi (often to ii)
+    [0.5, 0.15, 0.1, 0.1, 0.1, 0.05, 0.0], // from vii°
   ],
 
   // Blues: I-IV-V with some variations, dominant feel
   blues: [
     //  I     ii    iii   IV    V     vi    vii°
-    [0.20, 0.05, 0.00, 0.50, 0.20, 0.05, 0.00], // from I (often stays or goes to IV)
-    [0.30, 0.05, 0.00, 0.20, 0.40, 0.05, 0.00], // from ii
-    [0.30, 0.10, 0.05, 0.30, 0.20, 0.05, 0.00], // from iii
-    [0.40, 0.05, 0.00, 0.15, 0.35, 0.05, 0.00], // from IV
-    [0.55, 0.05, 0.00, 0.30, 0.05, 0.05, 0.00], // from V
-    [0.30, 0.10, 0.00, 0.25, 0.30, 0.05, 0.00], // from vi
-    [0.50, 0.10, 0.00, 0.20, 0.20, 0.00, 0.00], // from vii°
+    [0.2, 0.05, 0.0, 0.5, 0.2, 0.05, 0.0], // from I (often stays or goes to IV)
+    [0.3, 0.05, 0.0, 0.2, 0.4, 0.05, 0.0], // from ii
+    [0.3, 0.1, 0.05, 0.3, 0.2, 0.05, 0.0], // from iii
+    [0.4, 0.05, 0.0, 0.15, 0.35, 0.05, 0.0], // from IV
+    [0.55, 0.05, 0.0, 0.3, 0.05, 0.05, 0.0], // from V
+    [0.3, 0.1, 0.0, 0.25, 0.3, 0.05, 0.0], // from vi
+    [0.5, 0.1, 0.0, 0.2, 0.2, 0.0, 0.0], // from vii°
   ],
 
   // Rock: More dramatic, uses bVII conceptually mapped to V, power chord feel
   rock: [
     //  I     ii    iii   IV    V     vi    vii°
-    [0.10, 0.05, 0.05, 0.40, 0.30, 0.10, 0.00], // from I
-    [0.25, 0.05, 0.05, 0.25, 0.30, 0.10, 0.00], // from ii
-    [0.20, 0.10, 0.05, 0.30, 0.20, 0.15, 0.00], // from iii
-    [0.35, 0.05, 0.05, 0.10, 0.35, 0.10, 0.00], // from IV
-    [0.50, 0.05, 0.05, 0.25, 0.05, 0.10, 0.00], // from V
-    [0.20, 0.10, 0.10, 0.35, 0.20, 0.05, 0.00], // from vi
-    [0.45, 0.10, 0.05, 0.20, 0.15, 0.05, 0.00], // from vii°
+    [0.1, 0.05, 0.05, 0.4, 0.3, 0.1, 0.0], // from I
+    [0.25, 0.05, 0.05, 0.25, 0.3, 0.1, 0.0], // from ii
+    [0.2, 0.1, 0.05, 0.3, 0.2, 0.15, 0.0], // from iii
+    [0.35, 0.05, 0.05, 0.1, 0.35, 0.1, 0.0], // from IV
+    [0.5, 0.05, 0.05, 0.25, 0.05, 0.1, 0.0], // from V
+    [0.2, 0.1, 0.1, 0.35, 0.2, 0.05, 0.0], // from vi
+    [0.45, 0.1, 0.05, 0.2, 0.15, 0.05, 0.0], // from vii°
   ],
 
   // Classical: More voice-leading, secondary dominants
   classical: [
     //  I     ii    iii   IV    V     vi    vii°
-    [0.05, 0.15, 0.10, 0.30, 0.20, 0.15, 0.05], // from I
-    [0.15, 0.05, 0.10, 0.15, 0.45, 0.05, 0.05], // from ii
-    [0.15, 0.15, 0.05, 0.25, 0.15, 0.20, 0.05], // from iii
-    [0.25, 0.15, 0.10, 0.05, 0.30, 0.10, 0.05], // from IV
-    [0.55, 0.10, 0.05, 0.10, 0.05, 0.10, 0.05], // from V
-    [0.15, 0.25, 0.15, 0.20, 0.15, 0.05, 0.05], // from vi
-    [0.60, 0.10, 0.05, 0.10, 0.10, 0.05, 0.00], // from vii°
+    [0.05, 0.15, 0.1, 0.3, 0.2, 0.15, 0.05], // from I
+    [0.15, 0.05, 0.1, 0.15, 0.45, 0.05, 0.05], // from ii
+    [0.15, 0.15, 0.05, 0.25, 0.15, 0.2, 0.05], // from iii
+    [0.25, 0.15, 0.1, 0.05, 0.3, 0.1, 0.05], // from IV
+    [0.55, 0.1, 0.05, 0.1, 0.05, 0.1, 0.05], // from V
+    [0.15, 0.25, 0.15, 0.2, 0.15, 0.05, 0.05], // from vi
+    [0.6, 0.1, 0.05, 0.1, 0.1, 0.05, 0.0], // from vii°
   ],
 };
 
 // Starting chord probabilities per genre
 export const startingProbabilities: Record<Genre, number[]> = {
-  pop: [0.60, 0.05, 0.05, 0.15, 0.05, 0.10, 0.00],
-  jazz: [0.40, 0.30, 0.05, 0.10, 0.05, 0.10, 0.00],
-  blues: [0.80, 0.05, 0.00, 0.10, 0.05, 0.00, 0.00],
-  rock: [0.65, 0.05, 0.05, 0.15, 0.05, 0.05, 0.00],
-  classical: [0.50, 0.15, 0.10, 0.15, 0.05, 0.05, 0.00],
+  pop: [0.6, 0.05, 0.05, 0.15, 0.05, 0.1, 0.0],
+  jazz: [0.4, 0.3, 0.05, 0.1, 0.05, 0.1, 0.0],
+  blues: [0.8, 0.05, 0.0, 0.1, 0.05, 0.0, 0.0],
+  rock: [0.65, 0.05, 0.05, 0.15, 0.05, 0.05, 0.0],
+  classical: [0.5, 0.15, 0.1, 0.15, 0.05, 0.05, 0.0],
 };
 
 // Sample from a probability distribution
@@ -270,7 +338,7 @@ export type ProgressionBar = {
 function shouldEmbellish(
   barIndex: number,
   numBars: number,
-  genreConfig: GenreConfig
+  genreConfig: GenreConfig,
 ): boolean {
   const isPhraseEnd = (barIndex + 1) % 4 === 0; // Bar 4, 8, 12, etc.
   const isLastBar = barIndex === numBars - 1;
@@ -289,7 +357,7 @@ function getEmbellishment(
   degree: ScaleDegree,
   nextDegree: ScaleDegree | null,
   genreConfig: GenreConfig,
-  mode: Mode = "ionian"
+  mode: Mode = "ionian",
 ): BarChord | null {
   const modeConfig = getModeConfig(mode);
   const baseQuality = modeConfig.qualities[degree];
@@ -321,10 +389,10 @@ export function generateProgression(
   key: string,
   genre: Genre,
   numBars: number,
-  mode: Mode = "ionian"
+  mode: Mode = "ionian",
 ): ProgressionBar[] {
   const matrix = transitionMatrices[genre];
-  const genreConfig = genres.find(g => g.id === genre)!;
+  const genreConfig = genres.find((g) => g.id === genre)!;
   const modeConfig = getModeConfig(mode);
   const use7ths = genreConfig.use7ths;
 
@@ -334,7 +402,9 @@ export function generateProgression(
 
   let currentDegree: ScaleDegree = 0;
   for (let i = 1; i < numBars; i++) {
-    const nextDegree = sampleFromDistribution(matrix[currentDegree]) as ScaleDegree;
+    const nextDegree = sampleFromDistribution(
+      matrix[currentDegree],
+    ) as ScaleDegree;
     degrees.push(nextDegree);
     currentDegree = nextDegree;
   }
@@ -351,18 +421,34 @@ export function generateProgression(
     const baseQuality = modeConfig.qualities[degree];
 
     // Check if V should always be V7 for this genre (only if V is major in this mode)
-    if (degree === 4 && genreConfig.dominantAlways7 && !use7ths && baseQuality === "major") {
+    if (
+      degree === 4 &&
+      genreConfig.dominantAlways7 &&
+      !use7ths &&
+      baseQuality === "major"
+    ) {
       const root = getChordRoot(key, degree, mode);
       progression.push({
         degree,
-        chords: [{ chordName: root + "7", degreeName: modeConfig.degreeNames[4] + "7" }],
+        chords: [
+          {
+            chordName: root + "7",
+            degreeName: modeConfig.degreeNames[4] + "7",
+          },
+        ],
       });
       continue;
     }
 
     // Check for embellishment
     if (shouldEmbellish(i, numBars, genreConfig)) {
-      const embellishment = getEmbellishment(key, degree, nextDegree, genreConfig, mode);
+      const embellishment = getEmbellishment(
+        key,
+        degree,
+        nextDegree,
+        genreConfig,
+        mode,
+      );
       if (embellishment && embellishment.chordName !== baseChordName) {
         progression.push({
           degree,
@@ -385,7 +471,20 @@ export function generateProgression(
   return progression;
 }
 
-export const keys = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+export const keys = [
+  "C",
+  "C#",
+  "D",
+  "D#",
+  "E",
+  "F",
+  "F#",
+  "G",
+  "G#",
+  "A",
+  "A#",
+  "B",
+];
 export const barOptions = [4, 8, 12, 16];
 
 // ============ MELODY & BASS GENERATION ============
@@ -406,7 +505,7 @@ export function getScaleDegreeFrequency(
   key: string,
   degree: number,
   mode: Mode,
-  octaveOffset: number = 0
+  octaveOffset: number = 0,
 ): number {
   const keyIndex = chromaticNotes.indexOf(key);
   const modeConfig = getModeConfig(mode);
@@ -416,9 +515,18 @@ export function getScaleDegreeFrequency(
 
   // Base frequency for C3 is 130.81 Hz
   const baseFrequencies: Record<string, number> = {
-    "C": 130.81, "C#": 138.59, "D": 146.83, "D#": 155.56, "E": 164.81,
-    "F": 174.61, "F#": 185.00, "G": 196.00, "G#": 207.65, "A": 220.00,
-    "A#": 233.08, "B": 246.94
+    C: 130.81,
+    "C#": 138.59,
+    D: 146.83,
+    "D#": 155.56,
+    E: 164.81,
+    F: 174.61,
+    "F#": 185.0,
+    G: 196.0,
+    "G#": 207.65,
+    A: 220.0,
+    "A#": 233.08,
+    B: 246.94,
   };
 
   const noteName = chromaticNotes[noteIndex];
@@ -433,53 +541,53 @@ const melodyMatrices: Record<Genre, number[][]> = {
   pop: [
     // Very stepwise - pop melodies are singable
     //   0     1     2     3     4     5     6
-    [0.20, 0.40, 0.15, 0.05, 0.05, 0.05, 0.10], // from 0: strong pull to 1, can go to 6
-    [0.35, 0.15, 0.35, 0.10, 0.03, 0.02, 0.00], // from 1: step to 0 or 2
-    [0.10, 0.35, 0.15, 0.30, 0.07, 0.03, 0.00], // from 2
-    [0.05, 0.10, 0.35, 0.15, 0.30, 0.05, 0.00], // from 3
-    [0.05, 0.05, 0.10, 0.35, 0.15, 0.30, 0.00], // from 4
-    [0.05, 0.03, 0.05, 0.10, 0.35, 0.15, 0.27], // from 5
-    [0.15, 0.00, 0.02, 0.03, 0.10, 0.35, 0.35], // from 6: pull to 0 or stay/step to 5
+    [0.2, 0.4, 0.15, 0.05, 0.05, 0.05, 0.1], // from 0: strong pull to 1, can go to 6
+    [0.35, 0.15, 0.35, 0.1, 0.03, 0.02, 0.0], // from 1: step to 0 or 2
+    [0.1, 0.35, 0.15, 0.3, 0.07, 0.03, 0.0], // from 2
+    [0.05, 0.1, 0.35, 0.15, 0.3, 0.05, 0.0], // from 3
+    [0.05, 0.05, 0.1, 0.35, 0.15, 0.3, 0.0], // from 4
+    [0.05, 0.03, 0.05, 0.1, 0.35, 0.15, 0.27], // from 5
+    [0.15, 0.0, 0.02, 0.03, 0.1, 0.35, 0.35], // from 6: pull to 0 or stay/step to 5
   ],
   jazz: [
     // Slightly more leaps allowed, but still mostly stepwise
-    [0.15, 0.35, 0.15, 0.10, 0.10, 0.05, 0.10], // from 0
-    [0.30, 0.10, 0.30, 0.15, 0.10, 0.05, 0.00], // from 1
-    [0.10, 0.30, 0.10, 0.30, 0.12, 0.08, 0.00], // from 2
-    [0.08, 0.12, 0.30, 0.10, 0.30, 0.10, 0.00], // from 3
-    [0.10, 0.08, 0.12, 0.30, 0.10, 0.25, 0.05], // from 4
-    [0.08, 0.05, 0.08, 0.12, 0.30, 0.12, 0.25], // from 5
-    [0.20, 0.05, 0.05, 0.05, 0.10, 0.30, 0.25], // from 6
+    [0.15, 0.35, 0.15, 0.1, 0.1, 0.05, 0.1], // from 0
+    [0.3, 0.1, 0.3, 0.15, 0.1, 0.05, 0.0], // from 1
+    [0.1, 0.3, 0.1, 0.3, 0.12, 0.08, 0.0], // from 2
+    [0.08, 0.12, 0.3, 0.1, 0.3, 0.1, 0.0], // from 3
+    [0.1, 0.08, 0.12, 0.3, 0.1, 0.25, 0.05], // from 4
+    [0.08, 0.05, 0.08, 0.12, 0.3, 0.12, 0.25], // from 5
+    [0.2, 0.05, 0.05, 0.05, 0.1, 0.3, 0.25], // from 6
   ],
   blues: [
     // Pentatonic feel but still stepwise within that
-    [0.20, 0.10, 0.30, 0.20, 0.10, 0.02, 0.08], // from 0: favor 2,3 (blue notes)
-    [0.35, 0.10, 0.30, 0.15, 0.08, 0.02, 0.00], // from 1
-    [0.15, 0.10, 0.15, 0.40, 0.15, 0.03, 0.02], // from 2: strong to 3
-    [0.10, 0.05, 0.35, 0.15, 0.30, 0.03, 0.02], // from 3
-    [0.10, 0.03, 0.10, 0.35, 0.15, 0.12, 0.15], // from 4
-    [0.08, 0.02, 0.05, 0.10, 0.35, 0.15, 0.25], // from 5
-    [0.20, 0.02, 0.05, 0.08, 0.15, 0.30, 0.20], // from 6
+    [0.2, 0.1, 0.3, 0.2, 0.1, 0.02, 0.08], // from 0: favor 2,3 (blue notes)
+    [0.35, 0.1, 0.3, 0.15, 0.08, 0.02, 0.0], // from 1
+    [0.15, 0.1, 0.15, 0.4, 0.15, 0.03, 0.02], // from 2: strong to 3
+    [0.1, 0.05, 0.35, 0.15, 0.3, 0.03, 0.02], // from 3
+    [0.1, 0.03, 0.1, 0.35, 0.15, 0.12, 0.15], // from 4
+    [0.08, 0.02, 0.05, 0.1, 0.35, 0.15, 0.25], // from 5
+    [0.2, 0.02, 0.05, 0.08, 0.15, 0.3, 0.2], // from 6
   ],
   rock: [
     // Slightly more angular but still melodic
-    [0.20, 0.35, 0.15, 0.08, 0.12, 0.05, 0.05], // from 0
-    [0.35, 0.15, 0.30, 0.12, 0.05, 0.03, 0.00], // from 1
-    [0.12, 0.30, 0.15, 0.30, 0.10, 0.03, 0.00], // from 2
-    [0.08, 0.12, 0.30, 0.15, 0.30, 0.05, 0.00], // from 3
-    [0.15, 0.05, 0.10, 0.30, 0.15, 0.25, 0.00], // from 4
-    [0.08, 0.03, 0.05, 0.12, 0.30, 0.17, 0.25], // from 5
-    [0.20, 0.02, 0.03, 0.05, 0.10, 0.30, 0.30], // from 6
+    [0.2, 0.35, 0.15, 0.08, 0.12, 0.05, 0.05], // from 0
+    [0.35, 0.15, 0.3, 0.12, 0.05, 0.03, 0.0], // from 1
+    [0.12, 0.3, 0.15, 0.3, 0.1, 0.03, 0.0], // from 2
+    [0.08, 0.12, 0.3, 0.15, 0.3, 0.05, 0.0], // from 3
+    [0.15, 0.05, 0.1, 0.3, 0.15, 0.25, 0.0], // from 4
+    [0.08, 0.03, 0.05, 0.12, 0.3, 0.17, 0.25], // from 5
+    [0.2, 0.02, 0.03, 0.05, 0.1, 0.3, 0.3], // from 6
   ],
   classical: [
     // Very strict voice leading - almost always stepwise
     [0.15, 0.45, 0.15, 0.05, 0.05, 0.03, 0.12], // from 0
-    [0.40, 0.10, 0.40, 0.07, 0.02, 0.01, 0.00], // from 1
-    [0.08, 0.40, 0.10, 0.35, 0.05, 0.02, 0.00], // from 2
-    [0.05, 0.08, 0.38, 0.10, 0.35, 0.04, 0.00], // from 3
-    [0.05, 0.04, 0.08, 0.38, 0.10, 0.32, 0.03], // from 4
+    [0.4, 0.1, 0.4, 0.07, 0.02, 0.01, 0.0], // from 1
+    [0.08, 0.4, 0.1, 0.35, 0.05, 0.02, 0.0], // from 2
+    [0.05, 0.08, 0.38, 0.1, 0.35, 0.04, 0.0], // from 3
+    [0.05, 0.04, 0.08, 0.38, 0.1, 0.32, 0.03], // from 4
     [0.04, 0.02, 0.04, 0.08, 0.38, 0.12, 0.32], // from 5
-    [0.18, 0.02, 0.02, 0.03, 0.07, 0.38, 0.30], // from 6
+    [0.18, 0.02, 0.02, 0.03, 0.07, 0.38, 0.3], // from 6
   ],
 };
 
@@ -506,14 +614,29 @@ const bassPatterns: Record<Genre, BassPattern[]> = {
     { degrees: [0, 0, 0, 4, 4, 0], beats: [0, 0.66, 1.33, 2, 2.66, 3.33] }, // shuffle root-5th
   ],
   rock: [
-    { degrees: [0, 0, 0, 0, 0, 0, 0, 0], beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] }, // driving eighths
-    { degrees: [0, 0, 4, 4, 0, 0, 4, 4], beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] }, // eighth note root-5th
-    { degrees: [0, 0, 0, 4, 0, 0, 4, 0], beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] }, // punk feel
+    {
+      degrees: [0, 0, 0, 0, 0, 0, 0, 0],
+      beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
+    }, // driving eighths
+    {
+      degrees: [0, 0, 4, 4, 0, 0, 4, 4],
+      beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
+    }, // eighth note root-5th
+    {
+      degrees: [0, 0, 0, 4, 0, 0, 4, 0],
+      beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
+    }, // punk feel
     { degrees: [0, 4, 0, 4], beats: [0, 1, 2, 3] }, // simple quarters
   ],
   classical: [
-    { degrees: [0, 4, 2, 4, 0, 4, 2, 4], beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] }, // alberti bass
-    { degrees: [0, 2, 4, 2, 0, 2, 4, 2], beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5] }, // arpeggiated
+    {
+      degrees: [0, 4, 2, 4, 0, 4, 2, 4],
+      beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
+    }, // alberti bass
+    {
+      degrees: [0, 2, 4, 2, 0, 2, 4, 2],
+      beats: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5],
+    }, // arpeggiated
     { degrees: [0, 0, 4, 0], beats: [0, 1, 2, 3] }, // simple waltz
     { degrees: [0, 4, 2, 4, 0], beats: [0, 1, 1.5, 2.5, 3] }, // flowing
   ],
@@ -532,45 +655,163 @@ type RhythmPattern = { beat: number; duration: number }[];
 
 const melodyRhythmPatterns: Record<Genre, RhythmPattern[]> = {
   pop: [
-    [{ beat: 0, duration: 1 }, { beat: 1, duration: 0.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 1 }, { beat: 3, duration: 1 }],
-    [{ beat: 0, duration: 0.5 }, { beat: 0.5, duration: 0.5 }, { beat: 1, duration: 1 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 1 }],
-    [{ beat: 0, duration: 1.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 1 }, { beat: 3, duration: 0.5 }, { beat: 3.5, duration: 0.5 }],
-    [{ beat: 0, duration: 1 }, { beat: 1, duration: 1 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 0.5 }, { beat: 3.5, duration: 0.5 }],
+    [
+      { beat: 0, duration: 1 },
+      { beat: 1, duration: 0.5 },
+      { beat: 1.5, duration: 0.5 },
+      { beat: 2, duration: 1 },
+      { beat: 3, duration: 1 },
+    ],
+    [
+      { beat: 0, duration: 0.5 },
+      { beat: 0.5, duration: 0.5 },
+      { beat: 1, duration: 1 },
+      { beat: 2, duration: 0.5 },
+      { beat: 2.5, duration: 0.5 },
+      { beat: 3, duration: 1 },
+    ],
+    [
+      { beat: 0, duration: 1.5 },
+      { beat: 1.5, duration: 0.5 },
+      { beat: 2, duration: 1 },
+      { beat: 3, duration: 0.5 },
+      { beat: 3.5, duration: 0.5 },
+    ],
+    [
+      { beat: 0, duration: 1 },
+      { beat: 1, duration: 1 },
+      { beat: 2, duration: 0.5 },
+      { beat: 2.5, duration: 0.5 },
+      { beat: 3, duration: 0.5 },
+      { beat: 3.5, duration: 0.5 },
+    ],
   ],
   jazz: [
     // Swing feel - offbeat emphasis
-    [{ beat: 0, duration: 0.66 }, { beat: 0.66, duration: 0.34 }, { beat: 1, duration: 0.66 }, { beat: 1.66, duration: 0.34 }, { beat: 2, duration: 0.66 }, { beat: 2.66, duration: 0.34 }, { beat: 3, duration: 0.66 }, { beat: 3.66, duration: 0.34 }],
-    [{ beat: 0, duration: 1 }, { beat: 1, duration: 0.5 }, { beat: 1.66, duration: 0.34 }, { beat: 2, duration: 0.66 }, { beat: 2.66, duration: 0.34 }, { beat: 3, duration: 1 }],
-    [{ beat: 0, duration: 0.5 }, { beat: 0.66, duration: 0.34 }, { beat: 1, duration: 1 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 0.66 }, { beat: 3.66, duration: 0.34 }],
+    [
+      { beat: 0, duration: 0.66 },
+      { beat: 0.66, duration: 0.34 },
+      { beat: 1, duration: 0.66 },
+      { beat: 1.66, duration: 0.34 },
+      { beat: 2, duration: 0.66 },
+      { beat: 2.66, duration: 0.34 },
+      { beat: 3, duration: 0.66 },
+      { beat: 3.66, duration: 0.34 },
+    ],
+    [
+      { beat: 0, duration: 1 },
+      { beat: 1, duration: 0.5 },
+      { beat: 1.66, duration: 0.34 },
+      { beat: 2, duration: 0.66 },
+      { beat: 2.66, duration: 0.34 },
+      { beat: 3, duration: 1 },
+    ],
+    [
+      { beat: 0, duration: 0.5 },
+      { beat: 0.66, duration: 0.34 },
+      { beat: 1, duration: 1 },
+      { beat: 2, duration: 0.5 },
+      { beat: 2.5, duration: 0.5 },
+      { beat: 3, duration: 0.66 },
+      { beat: 3.66, duration: 0.34 },
+    ],
   ],
   blues: [
     // Shuffle/triplet feel
-    [{ beat: 0, duration: 0.66 }, { beat: 0.66, duration: 0.34 }, { beat: 1, duration: 0.66 }, { beat: 1.66, duration: 0.34 }, { beat: 2, duration: 1 }, { beat: 3, duration: 0.66 }, { beat: 3.66, duration: 0.34 }],
-    [{ beat: 0, duration: 1 }, { beat: 1, duration: 0.66 }, { beat: 1.66, duration: 0.34 }, { beat: 2, duration: 0.66 }, { beat: 2.66, duration: 0.34 }, { beat: 3, duration: 1 }],
-    [{ beat: 0, duration: 0.66 }, { beat: 0.66, duration: 0.34 }, { beat: 1, duration: 1.5 }, { beat: 2.66, duration: 0.34 }, { beat: 3, duration: 1 }],
+    [
+      { beat: 0, duration: 0.66 },
+      { beat: 0.66, duration: 0.34 },
+      { beat: 1, duration: 0.66 },
+      { beat: 1.66, duration: 0.34 },
+      { beat: 2, duration: 1 },
+      { beat: 3, duration: 0.66 },
+      { beat: 3.66, duration: 0.34 },
+    ],
+    [
+      { beat: 0, duration: 1 },
+      { beat: 1, duration: 0.66 },
+      { beat: 1.66, duration: 0.34 },
+      { beat: 2, duration: 0.66 },
+      { beat: 2.66, duration: 0.34 },
+      { beat: 3, duration: 1 },
+    ],
+    [
+      { beat: 0, duration: 0.66 },
+      { beat: 0.66, duration: 0.34 },
+      { beat: 1, duration: 1.5 },
+      { beat: 2.66, duration: 0.34 },
+      { beat: 3, duration: 1 },
+    ],
   ],
   rock: [
-    [{ beat: 0, duration: 0.5 }, { beat: 0.5, duration: 0.5 }, { beat: 1, duration: 0.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 1 }, { beat: 3, duration: 0.5 }, { beat: 3.5, duration: 0.5 }],
-    [{ beat: 0, duration: 1 }, { beat: 1, duration: 0.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 1 }],
-    [{ beat: 0, duration: 0.5 }, { beat: 0.5, duration: 0.5 }, { beat: 1, duration: 1 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 1 }, { beat: 3.5, duration: 0.5 }],
+    [
+      { beat: 0, duration: 0.5 },
+      { beat: 0.5, duration: 0.5 },
+      { beat: 1, duration: 0.5 },
+      { beat: 1.5, duration: 0.5 },
+      { beat: 2, duration: 1 },
+      { beat: 3, duration: 0.5 },
+      { beat: 3.5, duration: 0.5 },
+    ],
+    [
+      { beat: 0, duration: 1 },
+      { beat: 1, duration: 0.5 },
+      { beat: 1.5, duration: 0.5 },
+      { beat: 2, duration: 0.5 },
+      { beat: 2.5, duration: 0.5 },
+      { beat: 3, duration: 1 },
+    ],
+    [
+      { beat: 0, duration: 0.5 },
+      { beat: 0.5, duration: 0.5 },
+      { beat: 1, duration: 1 },
+      { beat: 2, duration: 0.5 },
+      { beat: 2.5, duration: 1 },
+      { beat: 3.5, duration: 0.5 },
+    ],
   ],
   classical: [
-    [{ beat: 0, duration: 0.5 }, { beat: 0.5, duration: 0.5 }, { beat: 1, duration: 0.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 0.5 }, { beat: 3.5, duration: 0.5 }],
-    [{ beat: 0, duration: 1 }, { beat: 1, duration: 0.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 1 }, { beat: 3, duration: 0.5 }, { beat: 3.5, duration: 0.5 }],
-    [{ beat: 0, duration: 1.5 }, { beat: 1.5, duration: 0.5 }, { beat: 2, duration: 0.5 }, { beat: 2.5, duration: 0.5 }, { beat: 3, duration: 1 }],
+    [
+      { beat: 0, duration: 0.5 },
+      { beat: 0.5, duration: 0.5 },
+      { beat: 1, duration: 0.5 },
+      { beat: 1.5, duration: 0.5 },
+      { beat: 2, duration: 0.5 },
+      { beat: 2.5, duration: 0.5 },
+      { beat: 3, duration: 0.5 },
+      { beat: 3.5, duration: 0.5 },
+    ],
+    [
+      { beat: 0, duration: 1 },
+      { beat: 1, duration: 0.5 },
+      { beat: 1.5, duration: 0.5 },
+      { beat: 2, duration: 1 },
+      { beat: 3, duration: 0.5 },
+      { beat: 3.5, duration: 0.5 },
+    ],
+    [
+      { beat: 0, duration: 1.5 },
+      { beat: 1.5, duration: 0.5 },
+      { beat: 2, duration: 0.5 },
+      { beat: 2.5, duration: 0.5 },
+      { beat: 3, duration: 1 },
+    ],
   ],
 };
 
 // Find the nearest chord tone to a given degree (for smooth voice leading)
-function nearestChordTone(currentDegree: number, chordTones: number[]): ScaleDegree {
+function nearestChordTone(
+  currentDegree: number,
+  chordTones: number[],
+): ScaleDegree {
   let nearest = chordTones[0];
   let minDistance = 7;
 
   for (const tone of chordTones) {
     // Check both direct and octave-wrapped distances
     const dist1 = Math.abs(tone - currentDegree);
-    const dist2 = Math.abs((tone + 7) - currentDegree);
-    const dist3 = Math.abs((tone - 7) - currentDegree);
+    const dist2 = Math.abs(tone + 7 - currentDegree);
+    const dist3 = Math.abs(tone - 7 - currentDegree);
     const dist = Math.min(dist1, dist2, dist3);
 
     if (dist < minDistance) {
@@ -584,9 +825,9 @@ function nearestChordTone(currentDegree: number, chordTones: number[]): ScaleDeg
 // Get approach note (one step below or above target)
 function getApproachNote(targetDegree: number): ScaleDegree {
   // 50% chance approach from below, 50% from above
-  return (Math.random() < 0.5
-    ? (targetDegree - 1 + 7) % 7
-    : (targetDegree + 1) % 7) as ScaleDegree;
+  return (
+    Math.random() < 0.5 ? (targetDegree - 1 + 7) % 7 : (targetDegree + 1) % 7
+  ) as ScaleDegree;
 }
 
 // ============ MELODY BANDIT LEARNING ============
@@ -629,7 +870,10 @@ export function savePersonalizedMatrices(matrices: PersonalizedMatrices): void {
 }
 
 // Get the matrix to use (personalized or default)
-export function getMelodyMatrix(genre: Genre, personalized: PersonalizedMatrices): number[][] {
+export function getMelodyMatrix(
+  genre: Genre,
+  personalized: PersonalizedMatrices,
+): number[][] {
   return personalized[genre] || melodyMatrices[genre];
 }
 
@@ -637,7 +881,7 @@ export function getMelodyMatrix(genre: Genre, personalized: PersonalizedMatrices
 function normalizeRow(row: number[]): number[] {
   const sum = row.reduce((a, b) => a + b, 0);
   if (sum === 0) return row.map(() => 1 / row.length);
-  return row.map(v => v / sum);
+  return row.map((v) => v / sum);
 }
 
 // Update matrix based on feedback
@@ -645,12 +889,12 @@ export function updateMelodyMatrix(
   genre: Genre,
   transitions: MelodyTransition[],
   liked: boolean,
-  personalized: PersonalizedMatrices
+  personalized: PersonalizedMatrices,
 ): PersonalizedMatrices {
   // Start with current matrix (personalized or default)
   const currentMatrix = personalized[genre]
-    ? personalized[genre]!.map(row => [...row])
-    : melodyMatrices[genre].map(row => [...row]);
+    ? personalized[genre]!.map((row) => [...row])
+    : melodyMatrices[genre].map((row) => [...row]);
 
   // Count transition occurrences
   const transitionCounts: Record<string, number> = {};
@@ -660,7 +904,7 @@ export function updateMelodyMatrix(
   }
 
   // Apply learning
-  const factor = liked ? (1 + LEARNING_RATE) : (1 - LEARNING_RATE * 0.7);
+  const factor = liked ? 1 + LEARNING_RATE : 1 - LEARNING_RATE * 0.7;
 
   for (const [key, count] of Object.entries(transitionCounts)) {
     const [from, to] = key.split(",").map(Number);
@@ -680,23 +924,25 @@ export function updateMelodyMatrix(
   // Return updated personalized matrices
   return {
     ...personalized,
-    [genre]: currentMatrix
+    [genre]: currentMatrix,
   };
 }
 
 // Reset personalized matrix for a genre
 export function resetMelodyMatrix(
   genre: Genre,
-  personalized: PersonalizedMatrices
+  personalized: PersonalizedMatrices,
 ): PersonalizedMatrices {
   return {
     ...personalized,
-    [genre]: null
+    [genre]: null,
   };
 }
 
 // Get training stats for display
-export function getTrainingStats(personalized: PersonalizedMatrices): Record<Genre, boolean> {
+export function getTrainingStats(
+  personalized: PersonalizedMatrices,
+): Record<Genre, boolean> {
   return {
     pop: personalized.pop !== null,
     jazz: personalized.jazz !== null,
@@ -713,7 +959,7 @@ export function generateMelody(
   mode: Mode,
   genre: Genre,
   beatsPerBar: number = 4,
-  personalizedMatrices?: PersonalizedMatrices
+  personalizedMatrices?: PersonalizedMatrices,
 ): MelodyGenerationResult {
   // Use personalized matrix if available, otherwise default
   const matrix = personalizedMatrices
@@ -737,7 +983,8 @@ export function generateMelody(
     const nextChordTones = nextBar ? getChordTones(nextBar.degree) : chordTones;
 
     // Pick a rhythm pattern for this bar
-    const pattern = rhythmPatterns[Math.floor(Math.random() * rhythmPatterns.length)];
+    const pattern =
+      rhythmPatterns[Math.floor(Math.random() * rhythmPatterns.length)];
 
     for (let slotIdx = 0; slotIdx < pattern.length; slotIdx++) {
       const slot = pattern[slotIdx];
@@ -762,8 +1009,7 @@ export function generateMelody(
       if (isDownbeat && barIdx > 0) {
         // BAR START: Resolve to a chord tone via voice leading
         currentDegree = nearestChordTone(currentDegree, chordTones);
-      }
-      else if (isApproachZone && nextBar && Math.random() < 0.6) {
+      } else if (isApproachZone && nextBar && Math.random() < 0.6) {
         // APPROACH ZONE: Lead into next chord
         const targetNote = nearestChordTone(currentDegree, nextChordTones);
 
@@ -774,14 +1020,14 @@ export function generateMelody(
           // Approach note - step towards it
           currentDegree = getApproachNote(targetNote);
         }
-      }
-      else if (isStrongBeat && Math.random() < 0.7) {
+      } else if (isStrongBeat && Math.random() < 0.7) {
         // Strong beats: prefer chord tones (but via voice leading)
         currentDegree = nearestChordTone(currentDegree, chordTones);
-      }
-      else {
+      } else {
         // Weak beats: Markov chain for melodic motion
-        const nextDegree = sampleFromDistribution(matrix[currentDegree]) as ScaleDegree;
+        const nextDegree = sampleFromDistribution(
+          matrix[currentDegree],
+        ) as ScaleDegree;
         currentDegree = nextDegree;
       }
 
@@ -818,7 +1064,7 @@ export function generateBassLine(
   key: string,
   mode: Mode,
   genre: Genre,
-  beatsPerBar: number = 4
+  beatsPerBar: number = 4,
 ): BassBar[] {
   const patterns = bassPatterns[genre];
   const bassLine: BassBar[] = [];

@@ -2,9 +2,26 @@
 // cleaned up automatically when its oscillators stop.
 
 import { midiToFreq } from "../theory";
-import { adsr, decay, filter, gain, karplus, noise, osc, shaper, type Ctx } from "./dsp";
+import {
+  adsr,
+  decay,
+  filter,
+  gain,
+  karplus,
+  noise,
+  osc,
+  shaper,
+  type Ctx,
+} from "./dsp";
 
-export type PlayFn = (ctx: Ctx, out: AudioNode, midi: number, time: number, dur: number, vel: number) => void;
+export type PlayFn = (
+  ctx: Ctx,
+  out: AudioNode,
+  midi: number,
+  time: number,
+  dur: number,
+  vel: number,
+) => void;
 
 const velCurve = (v: number) => Math.pow(v, 1.6);
 // Quantise excitation brightness so Karplus buffers are cached and reused
@@ -34,7 +51,16 @@ export const rhodes: PlayFn = (ctx, out, midi, time, dur, vel) => {
 
   const amp = gain(ctx, 0);
   const decayTime = 1.6 + Math.max(0, 72 - midi) * 0.05;
-  const end = adsr(amp.gain, time, dur, 0.33 * (0.35 + v), 0.003, decayTime, 0.35, 0.35);
+  const end = adsr(
+    amp.gain,
+    time,
+    dur,
+    0.33 * (0.35 + v),
+    0.003,
+    decayTime,
+    0.35,
+    0.35,
+  );
 
   const warmth = filter(ctx, "lowpass", 2400 + v * 3000, 0.5);
   carrier.connect(amp);
@@ -62,7 +88,8 @@ export const synthPiano: PlayFn = (ctx, out, midi, time, dur, vel) => {
     if (fh > 16000) break;
     const o = osc(ctx, "sine", fh, (Math.random() - 0.5) * 3);
     const g = gain(ctx, 0);
-    const level = (0.22 / Math.pow(h, 1.1)) * (0.4 + v) * (h === 1 ? 1 : 0.7 + v * 0.6);
+    const level =
+      (0.22 / Math.pow(h, 1.1)) * (0.4 + v) * (h === 1 ? 1 : 0.7 + v * 0.6);
     const dec = (2.8 + Math.max(0, 70 - midi) * 0.06) / Math.sqrt(h);
     g.gain.setValueAtTime(0.0001, time);
     g.gain.linearRampToValueAtTime(level, time + 0.004);
@@ -94,7 +121,16 @@ export const polySynth: PlayFn = (ctx, out, midi, time, dur, vel) => {
   lp.frequency.linearRampToValueAtTime(1200 + v * 3500, time + 0.01);
   lp.frequency.setTargetAtTime(700, time + 0.01, 0.12);
   const amp = gain(ctx, 0);
-  const end = adsr(amp.gain, time, dur, 0.14 * (0.5 + v), 0.004, 0.25, 0.5, 0.15);
+  const end = adsr(
+    amp.gain,
+    time,
+    dur,
+    0.14 * (0.5 + v),
+    0.004,
+    0.25,
+    0.5,
+    0.15,
+  );
   o1.connect(lp);
   o2.connect(lp);
   o3.connect(g3).connect(lp);
@@ -136,7 +172,13 @@ export const marimbaSynth: PlayFn = (ctx, out, midi, time, _dur, vel) => {
   for (const [ratio, level, d] of partials) {
     const o = osc(ctx, "sine", f * ratio);
     const g = gain(ctx, 0);
-    const end = decay(g.gain, time, level * 0.4 * (0.4 + v), 0.002, d * (1 + Math.max(0, 72 - midi) * 0.02));
+    const end = decay(
+      g.gain,
+      time,
+      level * 0.4 * (0.4 + v),
+      0.002,
+      d * (1 + Math.max(0, 72 - midi) * 0.02),
+    );
     o.connect(g).connect(out);
     o.start(time);
     o.stop(end);
@@ -191,7 +233,14 @@ export const vibesSynth: PlayFn = (ctx, out, midi, time, dur, vel) => {
 
 // ---------- Leads ----------
 
-function vibrato(ctx: Ctx, time: number, targets: AudioParam[], depth = 12, rate = 5.3, delay = 0.25) {
+function vibrato(
+  ctx: Ctx,
+  time: number,
+  targets: AudioParam[],
+  depth = 12,
+  rate = 5.3,
+  delay = 0.25,
+) {
   const lfo = osc(ctx, "sine", rate);
   const g = gain(ctx, 0);
   g.gain.setValueAtTime(0, time);
@@ -214,7 +263,16 @@ export const sawLead: PlayFn = (ctx, out, midi, time, dur, vel) => {
   lp.frequency.linearRampToValueAtTime(2800 + v * 3000, time + 0.04);
   lp.frequency.setTargetAtTime(2200, time + 0.05, 0.2);
   const amp = gain(ctx, 0);
-  const end = adsr(amp.gain, time, dur, 0.11 * (0.6 + v), 0.008, 0.2, 0.8, 0.18);
+  const end = adsr(
+    amp.gain,
+    time,
+    dur,
+    0.11 * (0.6 + v),
+    0.008,
+    0.2,
+    0.8,
+    0.18,
+  );
   const lfo = vibrato(ctx, time, [o1.detune, o2.detune], 14);
   o1.connect(lp);
   o2.connect(lp);
@@ -258,7 +316,16 @@ export const fluteSynth: PlayFn = (ctx, out, midi, time, dur, vel) => {
   const bg = gain(ctx, 0);
   adsr(bg.gain, time, dur, 0.05 * (0.5 + v), 0.03, 0.15, 0.4, 0.1);
   const amp = gain(ctx, 0);
-  const end = adsr(amp.gain, time, dur, 0.27 * (0.5 + v), 0.06, 0.2, 0.85, 0.15);
+  const end = adsr(
+    amp.gain,
+    time,
+    dur,
+    0.27 * (0.5 + v),
+    0.06,
+    0.2,
+    0.85,
+    0.15,
+  );
   const lfo = vibrato(ctx, time, [o1.detune, o2.detune, o3.detune], 9, 5, 0.3);
   o1.connect(amp);
   o2.connect(g2).connect(amp);
@@ -272,7 +339,13 @@ export const fluteSynth: PlayFn = (ctx, out, midi, time, dur, vel) => {
 };
 
 /** Bowed string section/solo: detuned saws through a body-like filter, slow attack. */
-function bowed(voices: number, spread: number, attack: number, level: number, brightness: number): PlayFn {
+function bowed(
+  voices: number,
+  spread: number,
+  attack: number,
+  level: number,
+  brightness: number,
+): PlayFn {
   return (ctx, out, midi, time, dur, vel) => {
     const f = midiToFreq(midi);
     const v = velCurve(vel);
@@ -281,7 +354,16 @@ function bowed(voices: number, spread: number, attack: number, level: number, br
     body.gain.value = 4;
     const hp = filter(ctx, "highpass", Math.min(180, f * 0.6), 0.5);
     const amp = gain(ctx, 0);
-    const end = adsr(amp.gain, time, dur, level * (0.5 + v * 0.7), attack, 0.4, 0.85, 0.45);
+    const end = adsr(
+      amp.gain,
+      time,
+      dur,
+      level * (0.5 + v * 0.7),
+      attack,
+      0.4,
+      0.85,
+      0.45,
+    );
     const oscs: OscillatorNode[] = [];
     for (let i = 0; i < voices; i++) {
       const det = voices === 1 ? 0 : -spread + (2 * spread * i) / (voices - 1);
@@ -289,7 +371,14 @@ function bowed(voices: number, spread: number, attack: number, level: number, br
       o.connect(lp);
       oscs.push(o);
     }
-    const lfo = vibrato(ctx, time, oscs.map((o) => o.detune), voices === 1 ? 14 : 6, 5.4, 0.15);
+    const lfo = vibrato(
+      ctx,
+      time,
+      oscs.map((o) => o.detune),
+      voices === 1 ? 14 : 6,
+      5.4,
+      0.15,
+    );
     lp.connect(body).connect(hp).connect(amp).connect(out);
     for (const o of [...oscs, lfo]) {
       o.start(time);
@@ -325,7 +414,16 @@ export const brassSynth: PlayFn = (ctx, out, midi, time, dur, vel) => {
 
 // ---------- Pads ----------
 
-function padVoice(opts: { voices: number; spread: number; type: OscillatorType; cutoff: number; attack: number; release: number; level: number; wow?: number }): PlayFn {
+function padVoice(opts: {
+  voices: number;
+  spread: number;
+  type: OscillatorType;
+  cutoff: number;
+  attack: number;
+  release: number;
+  level: number;
+  wow?: number;
+}): PlayFn {
   return (ctx, out, midi, time, dur, vel) => {
     const f = midiToFreq(midi);
     const lp = filter(ctx, "lowpass", opts.cutoff * 0.5, 0.8);
@@ -333,10 +431,22 @@ function padVoice(opts: { voices: number; spread: number; type: OscillatorType; 
     lp.frequency.linearRampToValueAtTime(opts.cutoff, time + opts.attack * 1.5);
     const hp = filter(ctx, "highpass", 140, 0.5);
     const amp = gain(ctx, 0);
-    const end = adsr(amp.gain, time, dur, opts.level * (0.6 + vel * 0.5), opts.attack, 1, 0.85, opts.release);
+    const end = adsr(
+      amp.gain,
+      time,
+      dur,
+      opts.level * (0.6 + vel * 0.5),
+      opts.attack,
+      1,
+      0.85,
+      opts.release,
+    );
     const oscs: OscillatorNode[] = [];
     for (let i = 0; i < opts.voices; i++) {
-      const det = opts.voices === 1 ? 0 : -opts.spread + (2 * opts.spread * i) / (opts.voices - 1);
+      const det =
+        opts.voices === 1
+          ? 0
+          : -opts.spread + (2 * opts.spread * i) / (opts.voices - 1);
       const o = osc(ctx, opts.type, f, det);
       o.connect(lp);
       oscs.push(o);
@@ -362,10 +472,43 @@ function padVoice(opts: { voices: number; spread: number; type: OscillatorType; 
   };
 }
 
-export const warmPad = padVoice({ voices: 3, spread: 10, type: "sawtooth", cutoff: 1400, attack: 0.6, release: 1.4, level: 0.06 });
-export const supersawPad = padVoice({ voices: 6, spread: 28, type: "sawtooth", cutoff: 3800, attack: 0.25, release: 1, level: 0.035 });
-export const tapePad = padVoice({ voices: 3, spread: 7, type: "triangle", cutoff: 1800, attack: 0.5, release: 1.2, level: 0.12, wow: 9 });
-export const choirSynth = padVoice({ voices: 4, spread: 12, type: "sawtooth", cutoff: 1100, attack: 0.5, release: 1, level: 0.05 });
+export const warmPad = padVoice({
+  voices: 3,
+  spread: 10,
+  type: "sawtooth",
+  cutoff: 1400,
+  attack: 0.6,
+  release: 1.4,
+  level: 0.06,
+});
+export const supersawPad = padVoice({
+  voices: 6,
+  spread: 28,
+  type: "sawtooth",
+  cutoff: 3800,
+  attack: 0.25,
+  release: 1,
+  level: 0.035,
+});
+export const tapePad = padVoice({
+  voices: 3,
+  spread: 7,
+  type: "triangle",
+  cutoff: 1800,
+  attack: 0.5,
+  release: 1.2,
+  level: 0.12,
+  wow: 9,
+});
+export const choirSynth = padVoice({
+  voices: 4,
+  spread: 12,
+  type: "sawtooth",
+  cutoff: 1100,
+  attack: 0.5,
+  release: 1,
+  level: 0.05,
+});
 
 // ---------- Bass ----------
 
@@ -378,7 +521,16 @@ export const subBass: PlayFn = (ctx, out, midi, time, dur, vel) => {
   const sat = shaper(ctx, 1.6);
   const lp = filter(ctx, "lowpass", 900, 0.7);
   const amp = gain(ctx, 0);
-  const end = adsr(amp.gain, time, dur * 0.95, 0.5 * (0.5 + v * 0.6), 0.006, 0.3, 0.8, 0.08);
+  const end = adsr(
+    amp.gain,
+    time,
+    dur * 0.95,
+    0.5 * (0.5 + v * 0.6),
+    0.006,
+    0.3,
+    0.8,
+    0.08,
+  );
   o1.connect(sat);
   o2.connect(g2).connect(sat);
   sat.connect(lp).connect(amp).connect(out);
@@ -402,7 +554,16 @@ export const analogBass: PlayFn = (ctx, out, midi, time, dur, vel) => {
   lp.frequency.setTargetAtTime(260, time + 0.006, 0.08);
   const sat = shaper(ctx, 2.2);
   const amp = gain(ctx, 0);
-  const end = adsr(amp.gain, time, dur * 0.95, 0.22 * (0.5 + v), 0.003, 0.2, 0.7, 0.06);
+  const end = adsr(
+    amp.gain,
+    time,
+    dur * 0.95,
+    0.22 * (0.5 + v),
+    0.003,
+    0.2,
+    0.7,
+    0.06,
+  );
   o1.connect(lp);
   o2.connect(g2).connect(lp);
   lp.connect(sat).connect(amp).connect(out);
@@ -424,7 +585,16 @@ export const fingerBassSynth: PlayFn = (ctx, out, midi, time, dur, vel) => {
   const lp = filter(ctx, "lowpass", 1200 + v * 1000, 0.8);
   const fund = osc(ctx, "sine", f);
   const fg = gain(ctx, 0);
-  const end = adsr(fg.gain, time, dur * 0.95, 0.25 * (0.5 + v), 0.005, 0.8, 0.5, 0.08);
+  const end = adsr(
+    fg.gain,
+    time,
+    dur * 0.95,
+    0.25 * (0.5 + v),
+    0.005,
+    0.8,
+    0.5,
+    0.08,
+  );
   const amp = gain(ctx, 0);
   adsr(amp.gain, time, dur * 0.95, 0.9 * (0.5 + v), 0.002, 1.5, 0.6, 0.08);
   src.connect(lp).connect(amp).connect(out);
@@ -443,7 +613,16 @@ export const uprightSynth: PlayFn = (ctx, out, midi, time, dur, vel) => {
   const g2 = gain(ctx, 0.2);
   const lp = filter(ctx, "lowpass", 700, 1);
   const amp = gain(ctx, 0);
-  const end = adsr(amp.gain, time, dur * 0.9, 0.4 * (0.5 + v), 0.004, 0.5, 0.35, 0.1);
+  const end = adsr(
+    amp.gain,
+    time,
+    dur * 0.9,
+    0.4 * (0.5 + v),
+    0.004,
+    0.5,
+    0.35,
+    0.1,
+  );
   const thump = noise(ctx, time, 0.05);
   const tf = filter(ctx, "lowpass", 400, 1);
   const tg = gain(ctx, 0);

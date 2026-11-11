@@ -17,19 +17,38 @@
 
 /* Custom animations */
 @keyframes vibrate {
-  0%, 100% { transform: translateY(0); }
-  25% { transform: translateY(-2px); }
-  75% { transform: translateY(2px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-2px);
+  }
+  75% {
+    transform: translateY(2px);
+  }
 }
 
 @keyframes glow-pulse {
-  0%, 100% { opacity: 0.6; filter: blur(8px); }
-  50% { opacity: 1; filter: blur(12px); }
+  0%,
+  100% {
+    opacity: 0.6;
+    filter: blur(8px);
+  }
+  50% {
+    opacity: 1;
+    filter: blur(12px);
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 /* Smooth scrollbar */
@@ -83,12 +102,20 @@ button:active {
 .range::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(to right, var(--accent, #fbbf24) var(--pct, 50%), rgba(255, 255, 255, 0.1) var(--pct, 50%));
+  background: linear-gradient(
+    to right,
+    var(--accent, #fbbf24) var(--pct, 50%),
+    rgba(255, 255, 255, 0.1) var(--pct, 50%)
+  );
 }
 .range::-moz-range-track {
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(to right, var(--accent, #fbbf24) var(--pct, 50%), rgba(255, 255, 255, 0.1) var(--pct, 50%));
+  background: linear-gradient(
+    to right,
+    var(--accent, #fbbf24) var(--pct, 50%),
+    rgba(255, 255, 255, 0.1) var(--pct, 50%)
+  );
 }
 .range::-webkit-slider-thumb {
   -webkit-appearance: none;

@@ -1,7 +1,39 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { generateProgression, generateMelody, generateBassLine, getScaleDegreeFrequency, genres, keys, barOptions, modes, getChordName, loadPersonalizedMatrices, savePersonalizedMatrices, updateMelodyMatrix, resetMelodyMatrix, type Genre, type Mode, type ProgressionBar, type ScaleDegree, type BarChord, type MelodyBar, type BassBar, type MelodyTransition, type PersonalizedMatrices } from "../data/cadenceData";
+import {
+  generateProgression,
+  generateMelody,
+  generateBassLine,
+  getScaleDegreeFrequency,
+  genres,
+  keys,
+  barOptions,
+  modes,
+  getChordName,
+  loadPersonalizedMatrices,
+  savePersonalizedMatrices,
+  updateMelodyMatrix,
+  resetMelodyMatrix,
+  type Genre,
+  type Mode,
+  type ProgressionBar,
+  type ScaleDegree,
+  type BarChord,
+  type MelodyBar,
+  type BassBar,
+  type MelodyTransition,
+  type PersonalizedMatrices,
+} from "../data/cadenceData";
 import { chords as allChords } from "../data/chordData";
-import { getAudioContext, getMasterOutput, playChord, playStrings, playHammond, playPiano, playMelodyNote, playBassNote } from "../lib/audio";
+import {
+  getAudioContext,
+  getMasterOutput,
+  playChord,
+  playStrings,
+  playHammond,
+  playPiano,
+  playMelodyNote,
+  playBassNote,
+} from "../lib/audio";
 import { Visualizer } from "../components/Visualizer";
 import { BassTab } from "../components/BassTab";
 
@@ -77,7 +109,12 @@ function playSnare(ctx: AudioContext, time: number, volume: number = 0.5) {
 }
 
 // Hi-hat - high frequency noise
-function playHiHat(ctx: AudioContext, time: number, open: boolean = false, volume: number = 0.3) {
+function playHiHat(
+  ctx: AudioContext,
+  time: number,
+  open: boolean = false,
+  volume: number = 0.3,
+) {
   const bufferSize = Math.floor(ctx.sampleRate * (open ? 0.3 : 0.05));
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   const data = buffer.getChannelData(0);
@@ -181,43 +218,163 @@ type GenrePatterns = {
 const drumPatternsByGenre: Record<Genre, GenrePatterns> = {
   pop: {
     patterns: [
-      { name: "Basic", kick: [1,0,0,0,1,0,0,0], snare: [0,0,1,0,0,0,1,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
-      { name: "Four on floor", kick: [1,0,1,0,1,0,1,0], snare: [0,0,1,0,0,0,1,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
-      { name: "Ballad", kick: [1,0,0,0,0,0,1,0], snare: [0,0,1,0,0,0,0,1], hihat: [1,0,1,0,1,0,1,0], ride: [0,0,0,0,0,0,0,0] },
-      { name: "Syncopated", kick: [1,0,0,1,0,0,1,0], snare: [0,0,1,0,0,1,0,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
-    ]
+      {
+        name: "Basic",
+        kick: [1, 0, 0, 0, 1, 0, 0, 0],
+        snare: [0, 0, 1, 0, 0, 0, 1, 0],
+        hihat: [1, 1, 1, 1, 1, 1, 1, 1],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "Four on floor",
+        kick: [1, 0, 1, 0, 1, 0, 1, 0],
+        snare: [0, 0, 1, 0, 0, 0, 1, 0],
+        hihat: [1, 1, 1, 1, 1, 1, 1, 1],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "Ballad",
+        kick: [1, 0, 0, 0, 0, 0, 1, 0],
+        snare: [0, 0, 1, 0, 0, 0, 0, 1],
+        hihat: [1, 0, 1, 0, 1, 0, 1, 0],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "Syncopated",
+        kick: [1, 0, 0, 1, 0, 0, 1, 0],
+        snare: [0, 0, 1, 0, 0, 1, 0, 0],
+        hihat: [1, 1, 1, 1, 1, 1, 1, 1],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+    ],
   },
   rock: {
     patterns: [
-      { name: "Basic", kick: [1,0,0,0,1,0,0,0], snare: [0,0,1,0,0,0,1,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
-      { name: "Driving", kick: [1,0,1,0,1,0,1,0], snare: [0,0,1,0,0,0,1,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
-      { name: "Half-time", kick: [1,0,0,0,0,0,0,0], snare: [0,0,0,0,1,0,0,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
-      { name: "Punk", kick: [1,1,1,1,1,1,1,1], snare: [0,0,1,0,0,0,1,0], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
-    ]
+      {
+        name: "Basic",
+        kick: [1, 0, 0, 0, 1, 0, 0, 0],
+        snare: [0, 0, 1, 0, 0, 0, 1, 0],
+        hihat: [1, 1, 1, 1, 1, 1, 1, 1],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "Driving",
+        kick: [1, 0, 1, 0, 1, 0, 1, 0],
+        snare: [0, 0, 1, 0, 0, 0, 1, 0],
+        hihat: [1, 1, 1, 1, 1, 1, 1, 1],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "Half-time",
+        kick: [1, 0, 0, 0, 0, 0, 0, 0],
+        snare: [0, 0, 0, 0, 1, 0, 0, 0],
+        hihat: [1, 1, 1, 1, 1, 1, 1, 1],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "Punk",
+        kick: [1, 1, 1, 1, 1, 1, 1, 1],
+        snare: [0, 0, 1, 0, 0, 0, 1, 0],
+        hihat: [1, 1, 1, 1, 1, 1, 1, 1],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+    ],
   },
   jazz: {
     patterns: [
-      { name: "Swing", kick: [1,0,0,0,0,0,0,0], snare: [0,0,0,0,0,0,0,0], hihat: [0,0,0,0,1,0,0,0], ride: [1,0,1,1,0,1,1,0] },
-      { name: "Bossa", kick: [1,0,0,0,0,0,1,0], snare: [0,0,0,1,0,0,0,0], hihat: [1,0,1,0,1,0,1,0], ride: [0,0,0,0,0,0,0,0] },
-      { name: "Brushes", kick: [1,0,0,0,0,0,0,0], snare: [0,0,1,0,0,0,1,0], hihat: [0,0,0,0,0,0,0,0], ride: [1,1,1,1,1,1,1,1] },
-      { name: "Fast swing", kick: [1,0,0,0,1,0,0,0], snare: [0,0,0,0,0,0,0,0], hihat: [0,0,1,0,0,0,1,0], ride: [1,0,1,1,1,0,1,1] },
-    ]
+      {
+        name: "Swing",
+        kick: [1, 0, 0, 0, 0, 0, 0, 0],
+        snare: [0, 0, 0, 0, 0, 0, 0, 0],
+        hihat: [0, 0, 0, 0, 1, 0, 0, 0],
+        ride: [1, 0, 1, 1, 0, 1, 1, 0],
+      },
+      {
+        name: "Bossa",
+        kick: [1, 0, 0, 0, 0, 0, 1, 0],
+        snare: [0, 0, 0, 1, 0, 0, 0, 0],
+        hihat: [1, 0, 1, 0, 1, 0, 1, 0],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "Brushes",
+        kick: [1, 0, 0, 0, 0, 0, 0, 0],
+        snare: [0, 0, 1, 0, 0, 0, 1, 0],
+        hihat: [0, 0, 0, 0, 0, 0, 0, 0],
+        ride: [1, 1, 1, 1, 1, 1, 1, 1],
+      },
+      {
+        name: "Fast swing",
+        kick: [1, 0, 0, 0, 1, 0, 0, 0],
+        snare: [0, 0, 0, 0, 0, 0, 0, 0],
+        hihat: [0, 0, 1, 0, 0, 0, 1, 0],
+        ride: [1, 0, 1, 1, 1, 0, 1, 1],
+      },
+    ],
   },
   blues: {
     patterns: [
-      { name: "Shuffle", kick: [1,0,0,1,0,0,1,0], snare: [0,0,1,0,0,1,0,0], hihat: [1,0,1,1,0,1,1,0], ride: [0,0,0,0,0,0,0,0] },
-      { name: "Slow blues", kick: [1,0,0,0,0,0,1,0], snare: [0,0,0,0,1,0,0,0], hihat: [1,0,1,0,1,0,1,0], ride: [0,0,0,0,0,0,0,0] },
-      { name: "Chicago", kick: [1,0,1,0,1,0,0,0], snare: [0,0,1,0,0,0,1,1], hihat: [1,1,1,1,1,1,1,1], ride: [0,0,0,0,0,0,0,0] },
-      { name: "Texas", kick: [1,0,0,1,0,1,0,0], snare: [0,0,1,0,0,0,1,0], hihat: [1,0,1,1,0,1,1,0], ride: [0,0,0,0,0,0,0,0] },
-    ]
+      {
+        name: "Shuffle",
+        kick: [1, 0, 0, 1, 0, 0, 1, 0],
+        snare: [0, 0, 1, 0, 0, 1, 0, 0],
+        hihat: [1, 0, 1, 1, 0, 1, 1, 0],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "Slow blues",
+        kick: [1, 0, 0, 0, 0, 0, 1, 0],
+        snare: [0, 0, 0, 0, 1, 0, 0, 0],
+        hihat: [1, 0, 1, 0, 1, 0, 1, 0],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "Chicago",
+        kick: [1, 0, 1, 0, 1, 0, 0, 0],
+        snare: [0, 0, 1, 0, 0, 0, 1, 1],
+        hihat: [1, 1, 1, 1, 1, 1, 1, 1],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "Texas",
+        kick: [1, 0, 0, 1, 0, 1, 0, 0],
+        snare: [0, 0, 1, 0, 0, 0, 1, 0],
+        hihat: [1, 0, 1, 1, 0, 1, 1, 0],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+    ],
   },
   classical: {
     patterns: [
-      { name: "Tick", kick: [0,0,0,0,0,0,0,0], snare: [0,0,0,0,0,0,0,0], hihat: [0,0,0,0,0,0,0,0], ride: [1,0,0,0,1,0,0,0] },
-      { name: "Waltz", kick: [1,0,0,0,0,0,0,0], snare: [0,0,0,1,0,0,1,0], hihat: [0,0,0,0,0,0,0,0], ride: [0,0,0,0,0,0,0,0] },
-      { name: "March", kick: [1,0,1,0,1,0,1,0], snare: [0,0,1,0,0,0,1,0], hihat: [0,0,0,0,0,0,0,0], ride: [0,0,0,0,0,0,0,0] },
-      { name: "Silent", kick: [0,0,0,0,0,0,0,0], snare: [0,0,0,0,0,0,0,0], hihat: [0,0,0,0,0,0,0,0], ride: [0,0,0,0,0,0,0,0] },
-    ]
+      {
+        name: "Tick",
+        kick: [0, 0, 0, 0, 0, 0, 0, 0],
+        snare: [0, 0, 0, 0, 0, 0, 0, 0],
+        hihat: [0, 0, 0, 0, 0, 0, 0, 0],
+        ride: [1, 0, 0, 0, 1, 0, 0, 0],
+      },
+      {
+        name: "Waltz",
+        kick: [1, 0, 0, 0, 0, 0, 0, 0],
+        snare: [0, 0, 0, 1, 0, 0, 1, 0],
+        hihat: [0, 0, 0, 0, 0, 0, 0, 0],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "March",
+        kick: [1, 0, 1, 0, 1, 0, 1, 0],
+        snare: [0, 0, 1, 0, 0, 0, 1, 0],
+        hihat: [0, 0, 0, 0, 0, 0, 0, 0],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+      {
+        name: "Silent",
+        kick: [0, 0, 0, 0, 0, 0, 0, 0],
+        snare: [0, 0, 0, 0, 0, 0, 0, 0],
+        hihat: [0, 0, 0, 0, 0, 0, 0, 0],
+        ride: [0, 0, 0, 0, 0, 0, 0, 0],
+      },
+    ],
   },
 };
 
@@ -251,9 +408,13 @@ function playClick(ctx: AudioContext, time: number, accent: boolean = false) {
 }
 
 // Schedule metronome clicks for a bar
-function scheduleClicks(ctx: AudioContext, duration: number, beatsPerBar: number) {
+function scheduleClicks(
+  ctx: AudioContext,
+  duration: number,
+  beatsPerBar: number,
+) {
   const now = ctx.currentTime;
-  const beatDuration = (duration / 1000) / beatsPerBar;
+  const beatDuration = duration / 1000 / beatsPerBar;
 
   for (let i = 0; i < beatsPerBar; i++) {
     playClick(ctx, now + i * beatDuration, i === 0);
@@ -261,10 +422,15 @@ function scheduleClicks(ctx: AudioContext, duration: number, beatsPerBar: number
 }
 
 // Schedule drum pattern for a bar
-function scheduleDrums(ctx: AudioContext, duration: number, pattern: DrumPattern, genre: Genre) {
+function scheduleDrums(
+  ctx: AudioContext,
+  duration: number,
+  pattern: DrumPattern,
+  genre: Genre,
+) {
   const now = ctx.currentTime;
   const stepsPerBar = 8;
-  const stepDuration = (duration / 1000) / stepsPerBar;
+  const stepDuration = duration / 1000 / stepsPerBar;
 
   for (let step = 0; step < stepsPerBar; step++) {
     const time = now + step * stepDuration;
@@ -298,20 +464,29 @@ export function Cadence() {
   const [playingPosition, setPlayingPosition] = useState<PlayingPosition>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(100);
-  const [rhythmMode, setRhythmMode] = useState<"off" | "click" | "drums">("off");
+  const [rhythmMode, setRhythmMode] = useState<"off" | "click" | "drums">(
+    "off",
+  );
   const [drumPatternIndex, setDrumPatternIndex] = useState(0);
   const [loopEnabled, setLoopEnabled] = useState(false);
   const [beatsPerBar, setBeatsPerBar] = useState(4);
-  const [enabledInstruments, setEnabledInstruments] = useState<Set<Instrument>>(new Set(["guitar"]));
+  const [enabledInstruments, setEnabledInstruments] = useState<Set<Instrument>>(
+    new Set(["guitar"]),
+  );
   const [editingPosition, setEditingPosition] = useState<EditingPosition>(null);
   const [melodyEnabled, setMelodyEnabled] = useState(false);
   const [bassEnabled, setBassEnabled] = useState(false);
   const [melody, setMelody] = useState<MelodyBar[]>([]);
   const [bassLine, setBassLine] = useState<BassBar[]>([]);
   const [visualSeed, setVisualSeed] = useState(0);
-  const [personalizedMatrices, setPersonalizedMatrices] = useState<PersonalizedMatrices>(() => loadPersonalizedMatrices());
-  const [melodyTransitions, setMelodyTransitions] = useState<MelodyTransition[]>([]);
-  const [transitionsPerBar, setTransitionsPerBar] = useState<MelodyTransition[][]>([]);
+  const [personalizedMatrices, setPersonalizedMatrices] =
+    useState<PersonalizedMatrices>(() => loadPersonalizedMatrices());
+  const [melodyTransitions, setMelodyTransitions] = useState<
+    MelodyTransition[]
+  >([]);
+  const [transitionsPerBar, setTransitionsPerBar] = useState<
+    MelodyTransition[][]
+  >([]);
   const [feedbackCount, setFeedbackCount] = useState(0); // Track how many times feedback given for current melody
   const [showBassTab, setShowBassTab] = useState(false);
   const [currentBeat, setCurrentBeat] = useState(0); // Beat position within current bar
@@ -335,21 +510,47 @@ export function Cadence() {
   const bassLineRef = useRef<BassBar[]>([]);
 
   // Reset pattern index when genre changes
-  useEffect(() => { setDrumPatternIndex(0); }, [selectedGenre]);
+  useEffect(() => {
+    setDrumPatternIndex(0);
+  }, [selectedGenre]);
 
   // Keep refs in sync with state
-  useEffect(() => { loopEnabledRef.current = loopEnabled; }, [loopEnabled]);
-  useEffect(() => { rhythmModeRef.current = rhythmMode; }, [rhythmMode]);
-  useEffect(() => { drumPatternIndexRef.current = drumPatternIndex; }, [drumPatternIndex]);
-  useEffect(() => { bpmRef.current = bpm; }, [bpm]);
-  useEffect(() => { beatsPerBarRef.current = beatsPerBar; }, [beatsPerBar]);
-  useEffect(() => { selectedGenreRef.current = selectedGenre; }, [selectedGenre]);
-  useEffect(() => { selectedModeRef.current = selectedMode; }, [selectedMode]);
-  useEffect(() => { selectedKeyRef.current = selectedKey; }, [selectedKey]);
-  useEffect(() => { melodyEnabledRef.current = melodyEnabled; }, [melodyEnabled]);
-  useEffect(() => { bassEnabledRef.current = bassEnabled; }, [bassEnabled]);
-  useEffect(() => { melodyRef.current = melody; }, [melody]);
-  useEffect(() => { bassLineRef.current = bassLine; }, [bassLine]);
+  useEffect(() => {
+    loopEnabledRef.current = loopEnabled;
+  }, [loopEnabled]);
+  useEffect(() => {
+    rhythmModeRef.current = rhythmMode;
+  }, [rhythmMode]);
+  useEffect(() => {
+    drumPatternIndexRef.current = drumPatternIndex;
+  }, [drumPatternIndex]);
+  useEffect(() => {
+    bpmRef.current = bpm;
+  }, [bpm]);
+  useEffect(() => {
+    beatsPerBarRef.current = beatsPerBar;
+  }, [beatsPerBar]);
+  useEffect(() => {
+    selectedGenreRef.current = selectedGenre;
+  }, [selectedGenre]);
+  useEffect(() => {
+    selectedModeRef.current = selectedMode;
+  }, [selectedMode]);
+  useEffect(() => {
+    selectedKeyRef.current = selectedKey;
+  }, [selectedKey]);
+  useEffect(() => {
+    melodyEnabledRef.current = melodyEnabled;
+  }, [melodyEnabled]);
+  useEffect(() => {
+    bassEnabledRef.current = bassEnabled;
+  }, [bassEnabled]);
+  useEffect(() => {
+    melodyRef.current = melody;
+  }, [melody]);
+  useEffect(() => {
+    bassLineRef.current = bassLine;
+  }, [bassLine]);
 
   const handleGenerate = useCallback(() => {
     // Stop any current playback
@@ -360,14 +561,34 @@ export function Cadence() {
     setIsPlaying(false);
     setPlayingPosition(null);
 
-    const newProgression = generateProgression(selectedKey, selectedGenre, numBars, selectedMode);
+    const newProgression = generateProgression(
+      selectedKey,
+      selectedGenre,
+      numBars,
+      selectedMode,
+    );
     setProgression(newProgression);
 
     // Generate melody and bass line (melody uses personalized matrices for learning)
-    const { melody: newMelody, transitions, transitionsPerBar: newTransitionsPerBar } = generateMelody(
-      newProgression, selectedKey, selectedMode, selectedGenre, beatsPerBar, personalizedMatrices
+    const {
+      melody: newMelody,
+      transitions,
+      transitionsPerBar: newTransitionsPerBar,
+    } = generateMelody(
+      newProgression,
+      selectedKey,
+      selectedMode,
+      selectedGenre,
+      beatsPerBar,
+      personalizedMatrices,
     );
-    const newBassLine = generateBassLine(newProgression, selectedKey, selectedMode, selectedGenre, beatsPerBar);
+    const newBassLine = generateBassLine(
+      newProgression,
+      selectedKey,
+      selectedMode,
+      selectedGenre,
+      beatsPerBar,
+    );
     setMelody(newMelody);
     setBassLine(newBassLine);
     setMelodyTransitions(transitions);
@@ -376,10 +597,17 @@ export function Cadence() {
 
     // Change visualization on each generate
     setVisualSeed(Math.floor(Math.random() * 1000));
-  }, [selectedKey, selectedGenre, numBars, selectedMode, beatsPerBar, personalizedMatrices]);
+  }, [
+    selectedKey,
+    selectedGenre,
+    numBars,
+    selectedMode,
+    beatsPerBar,
+    personalizedMatrices,
+  ]);
 
   const toggleInstrument = useCallback((instrument: Instrument) => {
-    setEnabledInstruments(prev => {
+    setEnabledInstruments((prev) => {
       const next = new Set(prev);
       if (next.has(instrument)) {
         next.delete(instrument);
@@ -391,34 +619,67 @@ export function Cadence() {
   }, []);
 
   // Melody feedback handlers (bandit learning)
-  const handleMelodyFeedback = useCallback((liked: boolean) => {
-    if (melodyTransitions.length === 0) return;
+  const handleMelodyFeedback = useCallback(
+    (liked: boolean) => {
+      if (melodyTransitions.length === 0) return;
 
-    const updated = updateMelodyMatrix(selectedGenre, melodyTransitions, liked, personalizedMatrices);
-    setPersonalizedMatrices(updated);
-    savePersonalizedMatrices(updated);
-    setFeedbackCount(prev => prev + 1);
-  }, [melodyTransitions, selectedGenre, personalizedMatrices]);
+      const updated = updateMelodyMatrix(
+        selectedGenre,
+        melodyTransitions,
+        liked,
+        personalizedMatrices,
+      );
+      setPersonalizedMatrices(updated);
+      savePersonalizedMatrices(updated);
+      setFeedbackCount((prev) => prev + 1);
+    },
+    [melodyTransitions, selectedGenre, personalizedMatrices],
+  );
 
   // Per-bar feedback: update matrix and regenerate melody immediately
-  const handleBarFeedback = useCallback((barIndex: number, liked: boolean) => {
-    const barTransitions = transitionsPerBar[barIndex];
-    if (!barTransitions || barTransitions.length === 0) return;
+  const handleBarFeedback = useCallback(
+    (barIndex: number, liked: boolean) => {
+      const barTransitions = transitionsPerBar[barIndex];
+      if (!barTransitions || barTransitions.length === 0) return;
 
-    // Update matrix
-    const updated = updateMelodyMatrix(selectedGenre, barTransitions, liked, personalizedMatrices);
-    setPersonalizedMatrices(updated);
-    savePersonalizedMatrices(updated);
+      // Update matrix
+      const updated = updateMelodyMatrix(
+        selectedGenre,
+        barTransitions,
+        liked,
+        personalizedMatrices,
+      );
+      setPersonalizedMatrices(updated);
+      savePersonalizedMatrices(updated);
 
-    // Regenerate melody with updated matrix
-    const { melody: newMelody, transitions, transitionsPerBar: newTransitionsPerBar } = generateMelody(
-      progression, selectedKey, selectedMode, selectedGenre, beatsPerBar, updated
-    );
-    setMelody(newMelody);
-    setMelodyTransitions(transitions);
-    setTransitionsPerBar(newTransitionsPerBar);
-    setFeedbackCount(prev => prev + 1);
-  }, [transitionsPerBar, selectedGenre, personalizedMatrices, progression, selectedKey, selectedMode, beatsPerBar]);
+      // Regenerate melody with updated matrix
+      const {
+        melody: newMelody,
+        transitions,
+        transitionsPerBar: newTransitionsPerBar,
+      } = generateMelody(
+        progression,
+        selectedKey,
+        selectedMode,
+        selectedGenre,
+        beatsPerBar,
+        updated,
+      );
+      setMelody(newMelody);
+      setMelodyTransitions(transitions);
+      setTransitionsPerBar(newTransitionsPerBar);
+      setFeedbackCount((prev) => prev + 1);
+    },
+    [
+      transitionsPerBar,
+      selectedGenre,
+      personalizedMatrices,
+      progression,
+      selectedKey,
+      selectedMode,
+      beatsPerBar,
+    ],
+  );
 
   const handleResetLearning = useCallback(() => {
     const updated = resetMelodyMatrix(selectedGenre, personalizedMatrices);
@@ -430,42 +691,45 @@ export function Cadence() {
   const isGenreTrained = personalizedMatrices[selectedGenre] !== null;
 
   // Update a chord in the progression
-  const updateChord = useCallback((barIndex: number, chordIndex: number, newChordName: string) => {
-    setProgression(prev => {
-      const updated = [...prev];
-      const bar = { ...updated[barIndex] };
-      const chords = [...bar.chords];
-      chords[chordIndex] = {
-        ...chords[chordIndex],
-        chordName: newChordName,
-        degreeName: chords[chordIndex].degreeName // keep original degree name
-      };
-      bar.chords = chords;
-      updated[barIndex] = bar;
-      return updated;
-    });
-    setEditingPosition(null);
-  }, []);
+  const updateChord = useCallback(
+    (barIndex: number, chordIndex: number, newChordName: string) => {
+      setProgression((prev) => {
+        const updated = [...prev];
+        const bar = { ...updated[barIndex] };
+        const chords = [...bar.chords];
+        chords[chordIndex] = {
+          ...chords[chordIndex],
+          chordName: newChordName,
+          degreeName: chords[chordIndex].degreeName, // keep original degree name
+        };
+        bar.chords = chords;
+        updated[barIndex] = bar;
+        return updated;
+      });
+      setEditingPosition(null);
+    },
+    [],
+  );
 
   // Add a new bar at the end
   const addBar = useCallback(() => {
     const defaultChordName = getChordName(selectedKey, 0 as ScaleDegree, false);
     const newBar: ProgressionBar = {
       degree: 0 as ScaleDegree,
-      chords: [{ chordName: defaultChordName, degreeName: "I" }]
+      chords: [{ chordName: defaultChordName, degreeName: "I" }],
     };
-    setProgression(prev => [...prev, newBar]);
+    setProgression((prev) => [...prev, newBar]);
   }, [selectedKey]);
 
   // Remove a bar
   const removeBar = useCallback((barIndex: number) => {
-    setProgression(prev => prev.filter((_, i) => i !== barIndex));
+    setProgression((prev) => prev.filter((_, i) => i !== barIndex));
     setEditingPosition(null);
   }, []);
 
   // Split a bar into two chords or merge back to one
   const toggleSplitBar = useCallback((barIndex: number) => {
-    setProgression(prev => {
+    setProgression((prev) => {
       const updated = [...prev];
       const bar = { ...updated[barIndex] };
       if (bar.chords.length === 1) {
@@ -480,34 +744,40 @@ export function Cadence() {
     });
   }, []);
 
-  const playChordByName = useCallback((chordName: string, duration: number = 2.5) => {
-    const ctx = getAudioContext();
+  const playChordByName = useCallback(
+    (chordName: string, duration: number = 2.5) => {
+      const ctx = getAudioContext();
 
-    // Play guitar if enabled (uses chord library for fingering)
-    if (enabledInstruments.has("guitar")) {
-      const chord = allChords.find(c => c.name === chordName);
-      if (chord) {
-        playChord(ctx, chord.frets);
+      // Play guitar if enabled (uses chord library for fingering)
+      if (enabledInstruments.has("guitar")) {
+        const chord = allChords.find((c) => c.name === chordName);
+        if (chord) {
+          playChord(ctx, chord.frets);
+        }
       }
-    }
 
-    // Play synth instruments (use chord name directly)
-    if (enabledInstruments.has("strings")) {
-      playStrings(ctx, chordName, duration);
-    }
-    if (enabledInstruments.has("hammond")) {
-      playHammond(ctx, chordName, duration);
-    }
-    if (enabledInstruments.has("piano")) {
-      playPiano(ctx, chordName, duration);
-    }
-  }, [enabledInstruments]);
+      // Play synth instruments (use chord name directly)
+      if (enabledInstruments.has("strings")) {
+        playStrings(ctx, chordName, duration);
+      }
+      if (enabledInstruments.has("hammond")) {
+        playHammond(ctx, chordName, duration);
+      }
+      if (enabledInstruments.has("piano")) {
+        playPiano(ctx, chordName, duration);
+      }
+    },
+    [enabledInstruments],
+  );
 
-  const handlePlaySingle = useCallback((chordName: string, barIndex: number, chordIndex: number) => {
-    playChordByName(chordName);
-    setPlayingPosition({ bar: barIndex, chord: chordIndex });
-    setTimeout(() => setPlayingPosition(null), 1000);
-  }, [playChordByName]);
+  const handlePlaySingle = useCallback(
+    (chordName: string, barIndex: number, chordIndex: number) => {
+      playChordByName(chordName);
+      setPlayingPosition({ bar: barIndex, chord: chordIndex });
+      setTimeout(() => setPlayingPosition(null), 1000);
+    },
+    [playChordByName],
+  );
 
   const handlePlayAll = useCallback(() => {
     if (progression.length === 0) return;
@@ -571,10 +841,15 @@ export function Cadence() {
           const barMelody = melodyRef.current[barIndex];
           const key = selectedKeyRef.current;
           const modeConfig = selectedModeRef.current;
-          const beatDuration = (timePerBar / 1000) / currentBeatsPerBar;
+          const beatDuration = timePerBar / 1000 / currentBeatsPerBar;
 
-          barMelody.forEach(note => {
-            const freq = getScaleDegreeFrequency(key, note.scaleDegree, modeConfig, note.octave);
+          barMelody.forEach((note) => {
+            const freq = getScaleDegreeFrequency(
+              key,
+              note.scaleDegree,
+              modeConfig,
+              note.octave,
+            );
             const noteStartTime = ctx.currentTime + note.beat * beatDuration;
             const noteDuration = note.duration * beatDuration;
             playMelodyNote(ctx, freq, noteDuration, noteStartTime);
@@ -586,10 +861,15 @@ export function Cadence() {
           const barBass = bassLineRef.current[barIndex];
           const key = selectedKeyRef.current;
           const modeConfig = selectedModeRef.current;
-          const beatDuration = (timePerBar / 1000) / currentBeatsPerBar;
+          const beatDuration = timePerBar / 1000 / currentBeatsPerBar;
 
-          barBass.forEach(note => {
-            const freq = getScaleDegreeFrequency(key, note.scaleDegree, modeConfig, note.octave);
+          barBass.forEach((note) => {
+            const freq = getScaleDegreeFrequency(
+              key,
+              note.scaleDegree,
+              modeConfig,
+              note.octave,
+            );
             const noteStartTime = ctx.currentTime + note.beat * beatDuration;
             const noteDuration = note.duration * beatDuration;
             playBassNote(ctx, freq, noteDuration, noteStartTime);
@@ -642,7 +922,7 @@ export function Cadence() {
     setCurrentBeat(0);
   }, []);
 
-  const selectedGenreConfig = genres.find(g => g.id === selectedGenre);
+  const selectedGenreConfig = genres.find((g) => g.id === selectedGenre);
 
   return (
     <div className="flex flex-col items-center min-h-[calc(100vh-4rem)] p-4 sm:p-6">
@@ -662,16 +942,19 @@ export function Cadence() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             {/* Key Selector */}
             <div>
-              <label className="block text-zinc-400 text-sm mb-2 font-medium">Key</label>
+              <label className="block text-zinc-400 text-sm mb-2 font-medium">
+                Key
+              </label>
               <div className="flex flex-wrap gap-1">
                 {keys.map((key) => (
                   <button
                     key={key}
                     onClick={() => setSelectedKey(key)}
                     className={`w-9 h-9 rounded-lg font-bold text-sm transition-all duration-200
-                      ${selectedKey === key
-                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg"
-                        : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                      ${
+                        selectedKey === key
+                          ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg"
+                          : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
                       }`}
                   >
                     {key}
@@ -682,20 +965,25 @@ export function Cadence() {
 
             {/* Mode Selector */}
             <div>
-              <label className="block text-zinc-400 text-sm mb-2 font-medium">Mode</label>
+              <label className="block text-zinc-400 text-sm mb-2 font-medium">
+                Mode
+              </label>
               <div className="grid grid-cols-2 gap-1">
                 {modes.map((mode) => (
                   <button
                     key={mode.id}
                     onClick={() => setSelectedMode(mode.id)}
                     className={`px-2 py-1.5 rounded-lg text-left text-xs transition-all duration-200
-                      ${selectedMode === mode.id
-                        ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-lg"
-                        : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                      ${
+                        selectedMode === mode.id
+                          ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-lg"
+                          : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
                       }`}
                   >
                     <span className="font-medium">{mode.name}</span>
-                    <span className="block text-[10px] opacity-70">{mode.character}</span>
+                    <span className="block text-[10px] opacity-70">
+                      {mode.character}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -705,20 +993,25 @@ export function Cadence() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             {/* Genre Selector */}
             <div>
-              <label className="block text-zinc-400 text-sm mb-2 font-medium">Genre</label>
+              <label className="block text-zinc-400 text-sm mb-2 font-medium">
+                Genre
+              </label>
               <div className="space-y-1">
                 {genres.map((genre) => (
                   <button
                     key={genre.id}
                     onClick={() => setSelectedGenre(genre.id)}
                     className={`w-full px-3 py-2 rounded-lg text-left text-sm transition-all duration-200
-                      ${selectedGenre === genre.id
-                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg"
-                        : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                      ${
+                        selectedGenre === genre.id
+                          ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg"
+                          : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
                       }`}
                   >
                     <span className="font-medium">{genre.name}</span>
-                    <span className="text-xs opacity-70 ml-2">{genre.description}</span>
+                    <span className="text-xs opacity-70 ml-2">
+                      {genre.description}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -726,16 +1019,19 @@ export function Cadence() {
 
             {/* Bars Selector */}
             <div>
-              <label className="block text-zinc-400 text-sm mb-2 font-medium">Bars</label>
+              <label className="block text-zinc-400 text-sm mb-2 font-medium">
+                Bars
+              </label>
               <div className="flex gap-2">
                 {barOptions.map((bars) => (
                   <button
                     key={bars}
                     onClick={() => setNumBars(bars)}
                     className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all duration-200
-                      ${numBars === bars
-                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg"
-                        : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                      ${
+                        numBars === bars
+                          ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg"
+                          : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
                       }`}
                   >
                     {bars}
@@ -751,8 +1047,18 @@ export function Cadence() {
               >
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                 <span className="relative flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
                   </svg>
                   Generate
                 </span>
@@ -764,7 +1070,12 @@ export function Cadence() {
         {/* Visualizer */}
         {progression.length > 0 && (
           <div className="backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-1 mb-6 overflow-hidden">
-            <Visualizer isPlaying={isPlaying} genre={selectedGenre} mode={selectedMode} seed={visualSeed} />
+            <Visualizer
+              isPlaying={isPlaying}
+              genre={selectedGenre}
+              mode={selectedMode}
+              seed={visualSeed}
+            />
           </div>
         )}
 
@@ -775,7 +1086,9 @@ export function Cadence() {
             <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
               {/* BPM Slider */}
               <div className="flex items-center gap-3 flex-1">
-                <span className="text-zinc-400 text-sm font-medium w-12">BPM</span>
+                <span className="text-zinc-400 text-sm font-medium w-12">
+                  BPM
+                </span>
                 <input
                   type="range"
                   min="40"
@@ -784,7 +1097,9 @@ export function Cadence() {
                   onChange={(e) => setBpm(Number(e.target.value))}
                   className="flex-1 h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                 />
-                <span className="text-white font-mono text-sm w-10 text-right">{bpm}</span>
+                <span className="text-white font-mono text-sm w-10 text-right">
+                  {bpm}
+                </span>
               </div>
 
               {/* Rhythm Mode Toggle */}
@@ -794,12 +1109,17 @@ export function Cadence() {
                     key={mode}
                     onClick={() => setRhythmMode(mode)}
                     className={`px-3 py-1.5 rounded-md font-medium text-xs transition-all duration-200
-                      ${rhythmMode === mode
-                        ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md"
-                        : "text-zinc-400 hover:text-white"
+                      ${
+                        rhythmMode === mode
+                          ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md"
+                          : "text-zinc-400 hover:text-white"
                       }`}
                   >
-                    {mode === "off" ? "No Beat" : mode === "click" ? "Click" : "Drums"}
+                    {mode === "off"
+                      ? "No Beat"
+                      : mode === "click"
+                        ? "Click"
+                        : "Drums"}
                   </button>
                 ))}
               </div>
@@ -812,9 +1132,10 @@ export function Cadence() {
                       key={beats}
                       onClick={() => setBeatsPerBar(beats)}
                       className={`w-7 h-7 rounded-md font-medium text-xs transition-all duration-200
-                        ${beatsPerBar === beats
-                          ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md"
-                          : "text-zinc-400 hover:text-white"
+                        ${
+                          beatsPerBar === beats
+                            ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md"
+                            : "text-zinc-400 hover:text-white"
                         }`}
                     >
                       {beats}
@@ -830,11 +1151,13 @@ export function Cadence() {
                   onChange={(e) => setDrumPatternIndex(Number(e.target.value))}
                   className="px-3 py-2 rounded-lg bg-zinc-800/50 text-white text-sm border border-zinc-700 focus:border-cyan-500 focus:outline-none"
                 >
-                  {drumPatternsByGenre[selectedGenre].patterns.map((pattern, idx) => (
-                    <option key={idx} value={idx}>
-                      {pattern.name}
-                    </option>
-                  ))}
+                  {drumPatternsByGenre[selectedGenre].patterns.map(
+                    (pattern, idx) => (
+                      <option key={idx} value={idx}>
+                        {pattern.name}
+                      </option>
+                    ),
+                  )}
                 </select>
               )}
 
@@ -842,13 +1165,24 @@ export function Cadence() {
               <button
                 onClick={() => setLoopEnabled(!loopEnabled)}
                 className={`px-3 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center gap-2
-                  ${loopEnabled
-                    ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-lg"
-                    : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                  ${
+                    loopEnabled
+                      ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-lg"
+                      : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
                   }`}
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
                 </svg>
                 Loop
               </button>
@@ -857,19 +1191,22 @@ export function Cadence() {
             {/* Instrument Toggles */}
             <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
               <span className="text-zinc-500 text-xs mr-1">Chords:</span>
-              {(["guitar", "piano", "strings", "hammond"] as Instrument[]).map((instrument) => (
-                <button
-                  key={instrument}
-                  onClick={() => toggleInstrument(instrument)}
-                  className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200
-                    ${enabledInstruments.has(instrument)
-                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
-                      : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
+              {(["guitar", "piano", "strings", "hammond"] as Instrument[]).map(
+                (instrument) => (
+                  <button
+                    key={instrument}
+                    onClick={() => toggleInstrument(instrument)}
+                    className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200
+                    ${
+                      enabledInstruments.has(instrument)
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md"
+                        : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
                     }`}
-                >
-                  {instrument.charAt(0).toUpperCase() + instrument.slice(1)}
-                </button>
-              ))}
+                  >
+                    {instrument.charAt(0).toUpperCase() + instrument.slice(1)}
+                  </button>
+                ),
+              )}
             </div>
 
             {/* Melody & Bass Toggles */}
@@ -878,25 +1215,41 @@ export function Cadence() {
               <button
                 onClick={() => setMelodyEnabled(!melodyEnabled)}
                 className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 flex items-center gap-1.5
-                  ${melodyEnabled
-                    ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md"
-                    : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
+                  ${
+                    melodyEnabled
+                      ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md"
+                      : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
                   }`}
               >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                  />
                 </svg>
                 Melody
               </button>
               <button
                 onClick={() => setBassEnabled(!bassEnabled)}
                 className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 flex items-center gap-1.5
-                  ${bassEnabled
-                    ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md"
-                    : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
+                  ${
+                    bassEnabled
+                      ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md"
+                      : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
                   }`}
               >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
                 </svg>
                 Bass
@@ -904,13 +1257,24 @@ export function Cadence() {
               <button
                 onClick={() => setShowBassTab(!showBassTab)}
                 className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all duration-200 flex items-center gap-1.5
-                  ${showBassTab
-                    ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md"
-                    : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
+                  ${
+                    showBassTab
+                      ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md"
+                      : "bg-zinc-800/50 text-zinc-500 hover:bg-zinc-700/50 hover:text-white"
                   }`}
               >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                  />
                 </svg>
                 Tab
               </button>
@@ -926,8 +1290,18 @@ export function Cadence() {
                     bg-zinc-800/50 text-zinc-400 hover:bg-green-500/20 hover:text-green-400 active:scale-95"
                   title="I like this melody - click multiple times for stronger signal"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                    />
                   </svg>
                   Like
                 </button>
@@ -937,18 +1311,34 @@ export function Cadence() {
                     bg-zinc-800/50 text-zinc-400 hover:bg-red-500/20 hover:text-red-400 active:scale-95"
                   title="I don't like this melody - click multiple times for stronger signal"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5"
+                    />
                   </svg>
                   Dislike
                 </button>
                 {feedbackCount > 0 && (
-                  <span className="text-xs text-cyan-400 ml-1">+{feedbackCount}</span>
+                  <span className="text-xs text-cyan-400 ml-1">
+                    +{feedbackCount}
+                  </span>
                 )}
                 {isGenreTrained && (
                   <div className="flex items-center gap-2 ml-2">
                     <span className="text-xs text-amber-400 flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                      <svg
+                        className="w-3 h-3"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                       </svg>
                       Trained
@@ -973,7 +1363,11 @@ export function Cadence() {
                   className="px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center gap-2
                     bg-gradient-to-r from-green-500 to-emerald-500 hover:shadow-lg hover:shadow-green-500/30"
                 >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <path d="M8 5v14l11-7z" />
                   </svg>
                   Play All
@@ -984,7 +1378,11 @@ export function Cadence() {
                   className="px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center gap-2
                     bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/30"
                 >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <path d="M6 6h12v12H6z" />
                   </svg>
                   Stop
@@ -995,7 +1393,8 @@ export function Cadence() {
             {/* Info */}
             <div className="text-center mb-4">
               <span className="text-zinc-400 text-sm">
-                {selectedKey} {modes.find(m => m.id === selectedMode)?.name} • {selectedGenreConfig?.name} • {numBars} bars
+                {selectedKey} {modes.find((m) => m.id === selectedMode)?.name} •{" "}
+                {selectedGenreConfig?.name} • {numBars} bars
               </span>
             </div>
 
@@ -1009,14 +1408,17 @@ export function Cadence() {
                   <div
                     key={barIndex}
                     className={`relative rounded-xl transition-all duration-300 overflow-visible group
-                      ${isBarPlaying
-                        ? "scale-105 shadow-lg shadow-cyan-500/30"
-                        : ""
+                      ${
+                        isBarPlaying
+                          ? "scale-105 shadow-lg shadow-cyan-500/30"
+                          : ""
                       }`}
                   >
                     {/* Bar number & controls */}
                     <div className="absolute -top-1 left-1 right-1 flex justify-between items-center z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-[10px] text-zinc-500 bg-zinc-900/80 px-1 rounded">{barIndex + 1}</span>
+                      <span className="text-[10px] text-zinc-500 bg-zinc-900/80 px-1 rounded">
+                        {barIndex + 1}
+                      </span>
                       {!isPlaying && (
                         <div className="flex gap-0.5">
                           <button
@@ -1043,28 +1445,46 @@ export function Cadence() {
                       /* Split bar - two chords */
                       <div className="flex h-full">
                         {bar.chords.map((chord, chordIndex) => {
-                          const isChordPlaying = isBarPlaying && playingPosition?.chord === chordIndex;
-                          const isEditing = editingPosition?.bar === barIndex && editingPosition?.chord === chordIndex;
+                          const isChordPlaying =
+                            isBarPlaying &&
+                            playingPosition?.chord === chordIndex;
+                          const isEditing =
+                            editingPosition?.bar === barIndex &&
+                            editingPosition?.chord === chordIndex;
                           return (
-                            <div key={chordIndex} className={`flex-1 relative ${chordIndex === 0 ? "" : ""}`}>
+                            <div
+                              key={chordIndex}
+                              className={`flex-1 relative ${chordIndex === 0 ? "" : ""}`}
+                            >
                               <button
                                 onClick={() => {
                                   if (isPlaying) {
-                                    handlePlaySingle(chord.chordName, barIndex, chordIndex);
+                                    handlePlaySingle(
+                                      chord.chordName,
+                                      barIndex,
+                                      chordIndex,
+                                    );
                                   } else {
-                                    setEditingPosition(isEditing ? null : { bar: barIndex, chord: chordIndex });
+                                    setEditingPosition(
+                                      isEditing
+                                        ? null
+                                        : { bar: barIndex, chord: chordIndex },
+                                    );
                                   }
                                 }}
                                 className={`w-full py-3 px-1 transition-all duration-300 cursor-pointer border flex flex-col items-center justify-center min-h-[70px]
-                                  ${isChordPlaying
-                                    ? "bg-gradient-to-br from-cyan-500/30 to-blue-500/30 border-cyan-400"
-                                    : isEditing
-                                    ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-400"
-                                    : "bg-zinc-800/50 border-zinc-700/50 hover:bg-zinc-700/50"
+                                  ${
+                                    isChordPlaying
+                                      ? "bg-gradient-to-br from-cyan-500/30 to-blue-500/30 border-cyan-400"
+                                      : isEditing
+                                        ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-400"
+                                        : "bg-zinc-800/50 border-zinc-700/50 hover:bg-zinc-700/50"
                                   }
                                   ${chordIndex === 0 ? "rounded-l-xl border-r-0" : "rounded-r-xl"}`}
                               >
-                                <div className={`text-sm sm:text-base font-black transition-colors truncate max-w-full px-1 ${isChordPlaying ? "text-cyan-400" : isEditing ? "text-amber-400" : "text-white"}`}>
+                                <div
+                                  className={`text-sm sm:text-base font-black transition-colors truncate max-w-full px-1 ${isChordPlaying ? "text-cyan-400" : isEditing ? "text-amber-400" : "text-white"}`}
+                                >
                                   {chord.chordName}
                                 </div>
                                 <div className="text-[10px] sm:text-xs text-zinc-500 truncate max-w-full">
@@ -1075,10 +1495,16 @@ export function Cadence() {
                               {isEditing && (
                                 <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-2 max-h-48 overflow-y-auto">
                                   <div className="grid grid-cols-4 gap-1">
-                                    {allChords.slice(0, 40).map(c => (
+                                    {allChords.slice(0, 40).map((c) => (
                                       <button
                                         key={c.name}
-                                        onClick={() => updateChord(barIndex, chordIndex, c.name)}
+                                        onClick={() =>
+                                          updateChord(
+                                            barIndex,
+                                            chordIndex,
+                                            c.name,
+                                          )
+                                        }
                                         className={`px-1.5 py-1 text-xs rounded transition-colors ${
                                           c.name === chord.chordName
                                             ? "bg-amber-500 text-white"
@@ -1101,21 +1527,33 @@ export function Cadence() {
                         <button
                           onClick={() => {
                             if (isPlaying) {
-                              handlePlaySingle(bar.chords[0].chordName, barIndex, 0);
+                              handlePlaySingle(
+                                bar.chords[0].chordName,
+                                barIndex,
+                                0,
+                              );
                             } else {
-                              const isEditing = editingPosition?.bar === barIndex && editingPosition?.chord === 0;
-                              setEditingPosition(isEditing ? null : { bar: barIndex, chord: 0 });
+                              const isEditing =
+                                editingPosition?.bar === barIndex &&
+                                editingPosition?.chord === 0;
+                              setEditingPosition(
+                                isEditing ? null : { bar: barIndex, chord: 0 },
+                              );
                             }
                           }}
                           className={`w-full p-4 rounded-xl transition-all duration-300 cursor-pointer border min-h-[70px] flex flex-col items-center justify-center
-                            ${isBarPlaying
-                              ? "bg-gradient-to-br from-cyan-500/30 to-blue-500/30 border-cyan-400"
-                              : editingPosition?.bar === barIndex && editingPosition?.chord === 0
-                              ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-400"
-                              : "bg-zinc-800/50 border-zinc-700/50 hover:bg-zinc-700/50"
+                            ${
+                              isBarPlaying
+                                ? "bg-gradient-to-br from-cyan-500/30 to-blue-500/30 border-cyan-400"
+                                : editingPosition?.bar === barIndex &&
+                                    editingPosition?.chord === 0
+                                  ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-amber-400"
+                                  : "bg-zinc-800/50 border-zinc-700/50 hover:bg-zinc-700/50"
                             }`}
                         >
-                          <div className={`text-xl sm:text-2xl font-black transition-colors ${isBarPlaying ? "text-cyan-400" : editingPosition?.bar === barIndex ? "text-amber-400" : "text-white"}`}>
+                          <div
+                            className={`text-xl sm:text-2xl font-black transition-colors ${isBarPlaying ? "text-cyan-400" : editingPosition?.bar === barIndex ? "text-amber-400" : "text-white"}`}
+                          >
                             {bar.chords[0].chordName}
                           </div>
                           <div className="text-xs sm:text-sm text-zinc-500">
@@ -1123,25 +1561,28 @@ export function Cadence() {
                           </div>
                         </button>
                         {/* Chord selector popup */}
-                        {editingPosition?.bar === barIndex && editingPosition?.chord === 0 && (
-                          <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-2 max-h-48 overflow-y-auto">
-                            <div className="grid grid-cols-4 gap-1">
-                              {allChords.slice(0, 40).map(c => (
-                                <button
-                                  key={c.name}
-                                  onClick={() => updateChord(barIndex, 0, c.name)}
-                                  className={`px-1.5 py-1 text-xs rounded transition-colors ${
-                                    c.name === bar.chords[0].chordName
-                                      ? "bg-amber-500 text-white"
-                                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-                                  }`}
-                                >
-                                  {c.name}
-                                </button>
-                              ))}
+                        {editingPosition?.bar === barIndex &&
+                          editingPosition?.chord === 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-1 z-30 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-2 max-h-48 overflow-y-auto">
+                              <div className="grid grid-cols-4 gap-1">
+                                {allChords.slice(0, 40).map((c) => (
+                                  <button
+                                    key={c.name}
+                                    onClick={() =>
+                                      updateChord(barIndex, 0, c.name)
+                                    }
+                                    className={`px-1.5 py-1 text-xs rounded transition-colors ${
+                                      c.name === bar.chords[0].chordName
+                                        ? "bg-amber-500 text-white"
+                                        : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                                    }`}
+                                  >
+                                    {c.name}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                     )}
 
@@ -1154,21 +1595,29 @@ export function Cadence() {
                     {melodyEnabled && (
                       <div className="absolute bottom-1 right-1 flex items-center gap-0.5 z-20">
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleBarFeedback(barIndex, true); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBarFeedback(barIndex, true);
+                          }}
                           className="w-6 h-6 flex items-center justify-center bg-green-500/20 hover:bg-green-500/40 text-green-400 rounded text-sm font-bold transition-colors"
                           title="Like this bar's melody - regenerates!"
                         >
                           +
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleBarFeedback(barIndex, false); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBarFeedback(barIndex, false);
+                          }}
                           className="w-6 h-6 flex items-center justify-center bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded text-sm font-bold transition-colors"
                           title="Dislike this bar's melody - regenerates!"
                         >
                           −
                         </button>
                         {feedbackCount > 0 && (
-                          <span className="text-[10px] text-cyan-400 font-bold ml-0.5">×{feedbackCount}</span>
+                          <span className="text-[10px] text-cyan-400 font-bold ml-0.5">
+                            ×{feedbackCount}
+                          </span>
                         )}
                       </div>
                     )}
@@ -1182,8 +1631,18 @@ export function Cadence() {
                   onClick={addBar}
                   className="min-h-[70px] rounded-xl border-2 border-dashed border-zinc-700 flex items-center justify-center text-zinc-500 hover:text-white hover:border-zinc-500 transition-colors"
                 >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
                   </svg>
                 </button>
               )}
@@ -1194,11 +1653,13 @@ export function Cadence() {
               <div className="inline-flex flex-wrap items-center justify-center gap-2 px-4 py-2 bg-zinc-800/50 rounded-lg">
                 <span className="text-zinc-500 text-sm">Progression:</span>
                 <span className="text-white font-mono text-sm">
-                  {progression.map(bar =>
-                    bar.chords.length > 1
-                      ? `(${bar.chords.map(c => c.degreeName).join("→")})`
-                      : bar.chords[0].degreeName
-                  ).join(" → ")}
+                  {progression
+                    .map((bar) =>
+                      bar.chords.length > 1
+                        ? `(${bar.chords.map((c) => c.degreeName).join("→")})`
+                        : bar.chords[0].degreeName,
+                    )
+                    .join(" → ")}
                 </span>
               </div>
             </div>
@@ -1225,13 +1686,16 @@ export function Cadence() {
           <div className="backdrop-blur-xl bg-white/5 rounded-2xl border border-white/10 p-8 text-center">
             <div className="text-6xl mb-4">🎲</div>
             <p className="text-zinc-400 mb-2">No progression yet</p>
-            <p className="text-zinc-600 text-sm">Select your options and hit Generate!</p>
+            <p className="text-zinc-600 text-sm">
+              Select your options and hit Generate!
+            </p>
           </div>
         )}
 
         {/* Footer */}
         <p className="text-center text-zinc-600 text-xs mt-8 tracking-wide">
-          Each genre uses a unique Markov transition matrix for authentic progressions
+          Each genre uses a unique Markov transition matrix for authentic
+          progressions
         </p>
       </div>
     </div>

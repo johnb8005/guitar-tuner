@@ -13,7 +13,6 @@ A browser music composer that writes and performs complete pieces with Markov ch
 
 Composer code lives in `src/composer/` (`theory.ts`, `markov.ts`, `generate.ts`, `styles.ts`, `audio/`, `ui/`). Run `bun test` for the theory/generation tests.
 
-
 Also included: a guitar tuner with pitch detection, a chord library, and **Cadence**, the original Markov chord progression generator.
 
 [![Deploy to GitHub Pages](https://github.com/johnb8005/guitar-tuner/actions/workflows/deploy.yml/badge.svg)](https://github.com/johnb8005/guitar-tuner/actions/workflows/deploy.yml)
@@ -24,6 +23,7 @@ Also included: a guitar tuner with pitch detection, a chord library, and **Caden
 ## Features
 
 ### Guitar Tuner
+
 - **Realistic string sounds** - Karplus-Strong algorithm for authentic plucked string synthesis
 - **Pitch detection** - Autocorrelation-based tuning with microphone input
 - **Analog-style meter** - Circular gauge showing cents deviation
@@ -31,6 +31,7 @@ Also included: a guitar tuner with pitch detection, a chord library, and **Caden
 - **Multiple tunings:** Standard, Drop D, Open G, Ukulele, Bass, 5-String Bass
 
 ### Cadence - Chord Progression Generator
+
 - **Markov chain progressions** - Genre-specific transition matrices for authentic chord sequences
 - **7 modes** - Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian
 - **5 genres** - Pop, Jazz, Blues, Rock, Classical (each with unique harmonic tendencies)

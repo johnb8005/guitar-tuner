@@ -1,10 +1,49 @@
 // Music theory primitives: pitch classes, scales, diatonic chords, chord symbols,
 // roman numerals and voice leading. Everything works on MIDI numbers.
 
-export const SHARP_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-export const FLAT_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+export const SHARP_NAMES = [
+  "C",
+  "C#",
+  "D",
+  "D#",
+  "E",
+  "F",
+  "F#",
+  "G",
+  "G#",
+  "A",
+  "A#",
+  "B",
+];
+export const FLAT_NAMES = [
+  "C",
+  "Db",
+  "D",
+  "Eb",
+  "E",
+  "F",
+  "Gb",
+  "G",
+  "Ab",
+  "A",
+  "Bb",
+  "B",
+];
 
-export const KEY_NAMES = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+export const KEY_NAMES = [
+  "C",
+  "Db",
+  "D",
+  "Eb",
+  "E",
+  "F",
+  "F#",
+  "G",
+  "Ab",
+  "A",
+  "Bb",
+  "B",
+];
 
 export type ScaleId =
   | "ionian"
@@ -27,15 +66,69 @@ export type ScaleDef = {
 };
 
 export const SCALES: ScaleDef[] = [
-  { id: "ionian", name: "Major", mood: "Bright, resolved", steps: [0, 2, 4, 5, 7, 9, 11], parentOffset: 0 },
-  { id: "aeolian", name: "Natural minor", mood: "Melancholic", steps: [0, 2, 3, 5, 7, 8, 10], parentOffset: 9 },
-  { id: "dorian", name: "Dorian", mood: "Soulful minor", steps: [0, 2, 3, 5, 7, 9, 10], parentOffset: 2 },
-  { id: "mixolydian", name: "Mixolydian", mood: "Bluesy, open", steps: [0, 2, 4, 5, 7, 9, 10], parentOffset: 7 },
-  { id: "lydian", name: "Lydian", mood: "Dreamy, floating", steps: [0, 2, 4, 6, 7, 9, 11], parentOffset: 5 },
-  { id: "phrygian", name: "Phrygian", mood: "Dark, Spanish", steps: [0, 1, 3, 5, 7, 8, 10], parentOffset: 4 },
-  { id: "harmonicMinor", name: "Harmonic minor", mood: "Dramatic, classical", steps: [0, 2, 3, 5, 7, 8, 11], parentOffset: 9 },
-  { id: "melodicMinor", name: "Melodic minor", mood: "Jazzy, bittersweet", steps: [0, 2, 3, 5, 7, 9, 11], parentOffset: 9 },
-  { id: "locrian", name: "Locrian", mood: "Unstable, tense", steps: [0, 1, 3, 5, 6, 8, 10], parentOffset: 11 },
+  {
+    id: "ionian",
+    name: "Major",
+    mood: "Bright, resolved",
+    steps: [0, 2, 4, 5, 7, 9, 11],
+    parentOffset: 0,
+  },
+  {
+    id: "aeolian",
+    name: "Natural minor",
+    mood: "Melancholic",
+    steps: [0, 2, 3, 5, 7, 8, 10],
+    parentOffset: 9,
+  },
+  {
+    id: "dorian",
+    name: "Dorian",
+    mood: "Soulful minor",
+    steps: [0, 2, 3, 5, 7, 9, 10],
+    parentOffset: 2,
+  },
+  {
+    id: "mixolydian",
+    name: "Mixolydian",
+    mood: "Bluesy, open",
+    steps: [0, 2, 4, 5, 7, 9, 10],
+    parentOffset: 7,
+  },
+  {
+    id: "lydian",
+    name: "Lydian",
+    mood: "Dreamy, floating",
+    steps: [0, 2, 4, 6, 7, 9, 11],
+    parentOffset: 5,
+  },
+  {
+    id: "phrygian",
+    name: "Phrygian",
+    mood: "Dark, Spanish",
+    steps: [0, 1, 3, 5, 7, 8, 10],
+    parentOffset: 4,
+  },
+  {
+    id: "harmonicMinor",
+    name: "Harmonic minor",
+    mood: "Dramatic, classical",
+    steps: [0, 2, 3, 5, 7, 8, 11],
+    parentOffset: 9,
+  },
+  {
+    id: "melodicMinor",
+    name: "Melodic minor",
+    mood: "Jazzy, bittersweet",
+    steps: [0, 2, 3, 5, 7, 9, 11],
+    parentOffset: 9,
+  },
+  {
+    id: "locrian",
+    name: "Locrian",
+    mood: "Unstable, tense",
+    steps: [0, 1, 3, 5, 6, 8, 10],
+    parentOffset: 11,
+  },
 ];
 
 export function getScale(id: ScaleId): ScaleDef {
@@ -111,7 +204,10 @@ export type Chord = {
 export type Extension = "triad" | "seventh" | "ninth";
 
 /** Chromatic (non-diatonic) harmony tokens: root offset from tonic + fixed intervals. */
-export const CHROMATIC_TOKENS: Record<string, { offset: number; intervals: number[]; func: Chord["func"] }> = {
+export const CHROMATIC_TOKENS: Record<
+  string,
+  { offset: number; intervals: number[]; func: Chord["func"] }
+> = {
   bVII: { offset: 10, intervals: [0, 4, 7], func: "color" },
   bVI: { offset: 8, intervals: [0, 4, 7], func: "predominant" },
   bIII: { offset: 3, intervals: [0, 4, 7], func: "color" },
@@ -123,7 +219,15 @@ export const CHROMATIC_TOKENS: Record<string, { offset: number; intervals: numbe
   bII: { offset: 1, intervals: [0, 4, 7], func: "predominant" },
 };
 
-const DEGREE_FUNC: Chord["func"][] = ["tonic", "predominant", "tonic", "predominant", "dominant", "tonic", "dominant"];
+const DEGREE_FUNC: Chord["func"][] = [
+  "tonic",
+  "predominant",
+  "tonic",
+  "predominant",
+  "dominant",
+  "tonic",
+  "dominant",
+];
 
 export function chordQualitySuffix(intervals: number[]): string {
   const set = new Set(intervals.map((i) => mod(i, 12)));
@@ -139,7 +243,11 @@ export function chordQualitySuffix(intervals: number[]): string {
   else if (has(3)) triad = "m";
 
   const hasNinth = intervals.some((i) => i === 14 || i === 13 || i === 15);
-  const ninth = intervals.includes(14) ? "9" : intervals.includes(13) ? "b9" : "";
+  const ninth = intervals.includes(14)
+    ? "9"
+    : intervals.includes(13)
+      ? "b9"
+      : "";
 
   if (has(10)) {
     if (triad === "dim") return hasNinth ? "m9b5" : "m7b5";
@@ -157,7 +265,20 @@ export function chordQualitySuffix(intervals: number[]): string {
   return triad;
 }
 
-const ROMAN = ["I", "bII", "II", "bIII", "III", "IV", "#IV", "V", "bVI", "VI", "bVII", "VII"];
+const ROMAN = [
+  "I",
+  "bII",
+  "II",
+  "bIII",
+  "III",
+  "IV",
+  "#IV",
+  "V",
+  "bVI",
+  "VI",
+  "bVII",
+  "VII",
+];
 
 export function romanFor(rootOffset: number, intervals: number[]): string {
   const base = ROMAN[mod(rootOffset, 12)]!;
@@ -201,7 +322,12 @@ export function buildChord(key: Key, token: string, ext: Extension): Chord {
       return steps[mod(idx, 7)]! + Math.floor(idx / 7) * 12;
     };
     rootOffset = steps[d]!;
-    const stack = ext === "triad" ? [0, 2, 4] : ext === "seventh" ? [0, 2, 4, 6] : [0, 2, 4, 6, 8];
+    const stack =
+      ext === "triad"
+        ? [0, 2, 4]
+        : ext === "seventh"
+          ? [0, 2, 4, 6]
+          : [0, 2, 4, 6, 8];
     intervals = stack.map((n) => at(n) - rootOffset);
     // avoid harsh b9 extensions: replace with plain 7th chord
     if (intervals.includes(13)) intervals = intervals.filter((i) => i !== 13);
@@ -209,9 +335,19 @@ export function buildChord(key: Key, token: string, ext: Extension): Chord {
   }
 
   const root = mod(key.tonic + rootOffset, 12);
-  const useFlats = flats || (chrom !== undefined && /^b/.test(token)) || (chrom !== undefined && token === "iv");
+  const useFlats =
+    flats ||
+    (chrom !== undefined && /^b/.test(token)) ||
+    (chrom !== undefined && token === "iv");
   const symbol = `${pcName(root, useFlats)}${chordQualitySuffix(intervals)}`;
-  return { token, root, intervals, symbol, roman: romanFor(rootOffset, intervals), func };
+  return {
+    token,
+    root,
+    intervals,
+    symbol,
+    roman: romanFor(rootOffset, intervals),
+    func,
+  };
 }
 
 /** Pitch classes in a chord. */
@@ -221,14 +357,22 @@ export function chordPcs(chord: Chord): number[] {
 
 /** Core chord tones (root, 3rd, 5th, 7th) — excludes 9ths. */
 export function chordCorePcs(chord: Chord): number[] {
-  return chord.intervals.filter((i) => i < 12).map((i) => mod(chord.root + i, 12));
+  return chord.intervals
+    .filter((i) => i < 12)
+    .map((i) => mod(chord.root + i, 12));
 }
 
 /**
  * Voice-led voicing: choose the inversion/octave placement of `chord` within [low, high]
  * minimising total movement from `prev` (common tones stay put).
  */
-export function voiceLead(chord: Chord, prev: number[] | null, low: number, high: number, maxVoices = 4): number[] {
+export function voiceLead(
+  chord: Chord,
+  prev: number[] | null,
+  low: number,
+  high: number,
+  maxVoices = 4,
+): number[] {
   let pcs = chordPcs(chord);
   // Drop the 5th first when we have too many voices (it's the least defining)
   if (pcs.length > maxVoices) {
@@ -262,8 +406,10 @@ export function voiceLead(chord: Chord, prev: number[] | null, low: number, high
     const mean = v.reduce((a, b) => a + b, 0) / v.length;
     let c = Math.abs(mean - center) * 0.35;
     if (prev && prev.length) {
-      for (const note of v) c += Math.min(...prev.map((p) => Math.abs(p - note)));
-      for (const p of prev) c += Math.min(...v.map((note) => Math.abs(p - note))) * 0.5;
+      for (const note of v)
+        c += Math.min(...prev.map((p) => Math.abs(p - note)));
+      for (const p of prev)
+        c += Math.min(...v.map((note) => Math.abs(p - note))) * 0.5;
     }
     return c;
   };
@@ -280,7 +426,12 @@ export function voiceLead(chord: Chord, prev: number[] | null, low: number, high
 }
 
 /** Nearest MIDI note with pitch class `pc` to `target`, clamped to [low, high]. */
-export function nearestPc(pc: number, target: number, low = 0, high = 127): number {
+export function nearestPc(
+  pc: number,
+  target: number,
+  low = 0,
+  high = 127,
+): number {
   let best = target;
   let bestDist = Infinity;
   for (let m = low; m <= high; m++) {

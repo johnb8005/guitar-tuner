@@ -53,11 +53,35 @@ export type DrumId =
   | "tomHigh"
   | "shaker";
 
-export type NoteEvent = { track: Exclude<TrackId, "drums">; time: number; dur: number; midi: number; vel: number };
-export type DrumEvent = { track: "drums"; time: number; drum: DrumId; vel: number };
+export type NoteEvent = {
+  track: Exclude<TrackId, "drums">;
+  time: number;
+  dur: number;
+  midi: number;
+  vel: number;
+};
+export type DrumEvent = {
+  track: "drums";
+  time: number;
+  drum: DrumId;
+  vel: number;
+};
 
-export type ChordSlot = { index: number; time: number; beats: number; chord: Chord; section: number; cadence?: "half" | "authentic" };
-export type Section = { label: string; kind: "A" | "A'" | "B" | "B'"; startBar: number; bars: number; energy: number };
+export type ChordSlot = {
+  index: number;
+  time: number;
+  beats: number;
+  chord: Chord;
+  section: number;
+  cadence?: "half" | "authentic";
+};
+export type Section = {
+  label: string;
+  kind: "A" | "A'" | "B" | "B'";
+  startBar: number;
+  bars: number;
+  energy: number;
+};
 
 export type Settings = {
   style: StyleId;
@@ -69,7 +93,9 @@ export type Settings = {
   extension: Extension;
   swing: number;
   seed: number;
-  partSeeds: Partial<Record<"harmony" | "melody" | "bass" | "comp" | "drums", number>>;
+  partSeeds: Partial<
+    Record<"harmony" | "melody" | "bass" | "comp" | "drums", number>
+  >;
   overrides: Record<number, string>; // chord slot index → harmony token
 };
 
@@ -138,7 +164,8 @@ export function melodyChain(): MarkovChain {
     const chain = new MarkovChain(2);
     for (const tune of MELODY_CORPUS) {
       const intervals: string[] = [];
-      for (let i = 1; i < tune.length; i++) intervals.push(String(tune[i]! - tune[i - 1]!));
+      for (let i = 1; i < tune.length; i++)
+        intervals.push(String(tune[i]! - tune[i - 1]!));
       chain.train(intervals);
     }
     melodyChainCache = chain;
@@ -150,7 +177,12 @@ const temperatureFor = (creativity: number) => 0.55 + creativity * 1.25;
 
 // ---------------- Harmony ----------------
 
-type Slot = { time: number; beats: number; token: string; cadence?: "half" | "authentic" };
+type Slot = {
+  time: number;
+  beats: number;
+  token: string;
+  cadence?: "half" | "authentic";
+};
 
 const isMinorish = (scale: ScaleId) => getScale(scale).steps[2] === 3;
 
@@ -167,7 +199,12 @@ function sampleChordSequence(
   chain: MarkovChain,
   rng: Rng,
   n: number,
-  opts: { start: "tonic" | "away" | "free"; end: "half" | "authentic"; temperature: number; prefix?: string[] }
+  opts: {
+    start: "tonic" | "away" | "free";
+    end: "half" | "authentic";
+    temperature: number;
+    prefix?: string[];
+  },
 ): string[] {
   const candidates: { seq: string[]; score: number }[] = [];
   for (let k = 0; k < 16; k++) {
@@ -176,7 +213,9 @@ function sampleChordSequence(
     let score = 0;
     const offset = full.length - seq.length;
     for (let i = offset; i < full.length; i++) {
-      const p = chain.distribution(full.slice(Math.max(0, i - 2), i)).get(full[i]!) ?? 0;
+      const p =
+        chain.distribution(full.slice(Math.max(0, i - 2), i)).get(full[i]!) ??
+        0;
       score += Math.log(p + 0.01);
       if (i > 0 && full[i] === full[i - 1]) score -= 2.5;
     }
@@ -186,7 +225,7 @@ function sampleChordSequence(
   const best = Math.max(...candidates.map((c) => c.score));
   return rng.weighted(
     candidates.map((c) => c.seq),
-    candidates.map((c) => Math.exp((c.score - best) / opts.temperature))
+    candidates.map((c) => Math.exp((c.score - best) / opts.temperature)),
   );
 }
 
@@ -194,10 +233,17 @@ function sampleChordCandidate(
   chain: MarkovChain,
   rng: Rng,
   n: number,
-  opts: { start: "tonic" | "away" | "free"; end: "half" | "authentic"; temperature: number; prefix?: string[] }
+  opts: {
+    start: "tonic" | "away" | "free";
+    end: "half" | "authentic";
+    temperature: number;
+    prefix?: string[];
+  },
 ): string[] {
   const vocab = [...chain.vocabulary];
-  const targets = cadenceTargets(opts.end).filter((t) => vocab.includes(t) || t === "1" || t === "5");
+  const targets = cadenceTargets(opts.end).filter(
+    (t) => vocab.includes(t) || t === "1" || t === "5",
+  );
   const out: string[] = [];
   for (let i = 0; i < n; i++) {
     const history = [...(opts.prefix ?? []), ...out].slice(-2);
@@ -211,7 +257,8 @@ function sampleChordCandidate(
         let w = p;
         if (i === 0 && !opts.prefix?.length) {
           if (opts.start === "tonic") w *= tok === "1" ? 30 : 0.3;
-          if (opts.start === "away") w *= tok === "1" ? 0.05 : ["4", "6", "2"].includes(tok) ? 2.5 : 1;
+          if (opts.start === "away")
+            w *= tok === "1" ? 0.05 : ["4", "6", "2"].includes(tok) ? 2.5 : 1;
         }
         if (tok === last) w *= 0.12;
         if (isPenult) {
@@ -220,7 +267,8 @@ function sampleChordCandidate(
           const reach = targets.reduce((a, t) => a + (next.get(t) ?? 0), 0);
           w *= 0.05 + reach * 3;
           if (targets.includes(tok)) w *= 0.2;
-          if (opts.end === "authentic" && ["5", "V7", "7"].includes(tok)) w *= 2.5;
+          if (opts.end === "authentic" && ["5", "V7", "7"].includes(tok))
+            w *= 2.5;
         }
         return w;
       },
@@ -230,12 +278,21 @@ function sampleChordCandidate(
   return out;
 }
 
-function phraseSlotLayout(rng: Rng, bars: number, splitChance: number): { time: number; beats: number }[] {
+function phraseSlotLayout(
+  rng: Rng,
+  bars: number,
+  splitChance: number,
+): { time: number; beats: number }[] {
   const slots: { time: number; beats: number }[] = [];
   for (let b = 0; b < bars; b++) {
     const t = b * BEATS_PER_BAR;
     // Cadence bars split more often (e.g. ii–V or V–I in one bar)
-    const p = b === bars - 1 ? splitChance * 0.8 : b === bars - 2 ? splitChance * 1.4 : splitChance;
+    const p =
+      b === bars - 1
+        ? splitChance * 0.8
+        : b === bars - 2
+          ? splitChance * 1.4
+          : splitChance;
     if (b > 0 && rng.chance(p)) {
       slots.push({ time: t, beats: 2 }, { time: t + 2, beats: 2 });
     } else slots.push({ time: t, beats: BEATS_PER_BAR });
@@ -243,8 +300,14 @@ function phraseSlotLayout(rng: Rng, bars: number, splitChance: number): { time: 
   return slots;
 }
 
-function generateHarmony(settings: Settings, style: StyleDef, sections: Section[]): Slot[][] {
-  const rng = createRng(settings.partSeeds.harmony ?? deriveSeed(settings.seed, "harmony"));
+function generateHarmony(
+  settings: Settings,
+  style: StyleDef,
+  sections: Section[],
+): Slot[][] {
+  const rng = createRng(
+    settings.partSeeds.harmony ?? deriveSeed(settings.seed, "harmony"),
+  );
   const chain = harmonyChain(style.id);
   const temperature = temperatureFor(settings.creativity);
   const memory = new Map<string, Slot[]>();
@@ -252,8 +315,10 @@ function generateHarmony(settings: Settings, style: StyleDef, sections: Section[
 
   for (const section of sections) {
     const isLastSection = section === sections[sections.length - 1];
-    const end: "half" | "authentic" = section.kind === "A'" || isLastSection ? "authentic" : "half";
-    const baseKind = section.kind === "A'" ? "A" : section.kind === "B'" ? "B" : section.kind;
+    const end: "half" | "authentic" =
+      section.kind === "A'" || isLastSection ? "authentic" : "half";
+    const baseKind =
+      section.kind === "A'" ? "A" : section.kind === "B'" ? "B" : section.kind;
     const remembered = memory.get(baseKind);
     let slots: Slot[];
     if (remembered) {
@@ -262,7 +327,12 @@ function generateHarmony(settings: Settings, style: StyleDef, sections: Section[
       const cadenceOf = slots[slots.length - 1]!.cadence;
       if (cadenceOf !== end) {
         const keep = slots.slice(0, -2).map((s) => s.token);
-        const tail = sampleChordSequence(chain, rng, 2, { start: "free", end, temperature, prefix: keep });
+        const tail = sampleChordSequence(chain, rng, 2, {
+          start: "free",
+          end,
+          temperature,
+          prefix: keep,
+        });
         slots[slots.length - 2]!.token = tail[0]!;
         slots[slots.length - 1]!.token = tail[1]!;
       }
@@ -281,12 +351,20 @@ function generateHarmony(settings: Settings, style: StyleDef, sections: Section[
       const cadIdx = end === "half" ? slots.length - 1 : slots.length - 2;
       if (slots[cadIdx]?.token === "5") slots[cadIdx]!.token = "V7";
     }
-    if (!memory.has(baseKind)) memory.set(baseKind, slots.map((s) => ({ ...s })));
+    if (!memory.has(baseKind))
+      memory.set(
+        baseKind,
+        slots.map((s) => ({ ...s })),
+      );
     // A chord repeated inside the same bar is just one longer chord
     for (let i = slots.length - 1; i > 0; i--) {
       const a = slots[i - 1]!;
       const b = slots[i]!;
-      if (a.token === b.token && Math.floor(a.time / BEATS_PER_BAR) === Math.floor(b.time / BEATS_PER_BAR)) {
+      if (
+        a.token === b.token &&
+        Math.floor(a.time / BEATS_PER_BAR) ===
+          Math.floor(b.time / BEATS_PER_BAR)
+      ) {
         a.beats += b.beats;
         a.cadence = b.cadence ?? a.cadence;
         slots.splice(i, 1);
@@ -301,7 +379,12 @@ function generateHarmony(settings: Settings, style: StyleDef, sections: Section[
 
 type Onset = { time: number; dur: number; strong: boolean };
 
-function sampleRhythmBar(chain: MarkovChain, rng: Rng, energy: number, temperature: number): string[] {
+function sampleRhythmBar(
+  chain: MarkovChain,
+  rng: Rng,
+  energy: number,
+  temperature: number,
+): string[] {
   const cells: string[] = [];
   for (let i = 0; i < 4; i++) {
     const tok = chain.sample(cells.slice(-2), rng, {
@@ -325,12 +408,14 @@ function cellsToOnsets(bars: string[][], chordTimes: Set<number>): Onset[] {
       const t0 = b * BEATS_PER_BAR + beat;
       if (cell === "-") {
         const prev = onsets[onsets.length - 1];
-        if (prev && prev.time + prev.dur >= t0 - 0.51) prev.dur = t0 + 1 - prev.time;
+        if (prev && prev.time + prev.dur >= t0 - 0.51)
+          prev.dur = t0 + 1 - prev.time;
         return;
       }
       for (const [on, dur] of RHYTHM_CELLS[cell] ?? []) {
         const time = t0 + on;
-        const strong = (on === 0 && (beat === 0 || beat === 2)) || chordTimes.has(time);
+        const strong =
+          (on === 0 && (beat === 0 || beat === 2)) || chordTimes.has(time);
         onsets.push({ time, dur, strong });
       }
     });
@@ -368,7 +453,7 @@ function scoreStep(
   prevStep: number,
   prevInterval: number | null,
   repeatCount: number,
-  candStep: number
+  candStep: number,
 ): number {
   const { key, low, high, center } = ctx;
   const midi = toMidi(key, candStep);
@@ -383,8 +468,14 @@ function scoreStep(
   else w *= chordTone ? 1.4 : 1;
   // Gap-fill: after a leap, step back the other way.
   if (prevInterval !== null && Math.abs(prevInterval) >= 3) {
-    if (Math.sign(iv) === -Math.sign(prevInterval) && Math.abs(iv) <= 2 && iv !== 0) w *= 2.5;
-    else if (Math.sign(iv) === Math.sign(prevInterval) && Math.abs(iv) >= 2) w *= 0.25;
+    if (
+      Math.sign(iv) === -Math.sign(prevInterval) &&
+      Math.abs(iv) <= 2 &&
+      iv !== 0
+    )
+      w *= 2.5;
+    else if (Math.sign(iv) === Math.sign(prevInterval) && Math.abs(iv) >= 2)
+      w *= 0.25;
   }
   // Tendency tones
   const prevDeg = mod(prevStep, 7);
@@ -406,12 +497,13 @@ function generatePhraseMelody(
   phraseStart: number,
   startStep: number,
   ending: "half" | "authentic",
-  motif: { useSequence: boolean }
+  motif: { useSequence: boolean },
 ): { time: number; dur: number; step: number; strong: boolean }[] {
   const { key, rng, chain, temperature } = ctx;
   const chordTimes = new Set(slots.map((s) => s.time - phraseStart));
   const onsets = cellsToOnsets(rhythm, chordTimes);
-  const notes: { time: number; dur: number; step: number; strong: boolean }[] = [];
+  const notes: { time: number; dur: number; step: number; strong: boolean }[] =
+    [];
   const bar0 = onsets.filter((o) => o.time < BEATS_PER_BAR);
   const intervals: number[] = [];
   let step = startStep;
@@ -428,7 +520,11 @@ function generatePhraseMelody(
       const cands = [-3, -2, -1, 0, 1, 2, 3].map((d) => startStep + d);
       next = rng.weighted(
         cands,
-        cands.map((s) => (isChordTone(chord, toMidi(key, s)) ? 3 : 0.2) * Math.exp(-Math.abs(s - startStep) * 0.5))
+        cands.map(
+          (s) =>
+            (isChordTone(chord, toMidi(key, s)) ? 3 : 0.2) *
+            Math.exp(-Math.abs(s - startStep) * 0.5),
+        ),
       );
     } else if (isLast) {
       // Cadence: tonic for authentic endings, a dominant chord tone for half cadences.
@@ -442,19 +538,32 @@ function generatePhraseMelody(
           let w = Math.exp(-Math.abs(s - step) * 0.7);
           if (midi < ctx.low || midi > ctx.high) w *= 0.02;
           if (ending === "authentic") w *= deg === 0 ? 1000 : 0.01;
-          else w *= isChordTone(chord, midi) ? (deg === 1 || deg === 4 ? 12 : 5) : 0.05;
+          else
+            w *= isChordTone(chord, midi)
+              ? deg === 1 || deg === 4
+                ? 12
+                : 5
+              : 0.05;
           return w;
-        })
+        }),
       );
     } else if (motif.useSequence && bar === 2 && notes.length >= bar0.length) {
       // Sequence: replay bar 1's contour from a new chord tone.
-      const j = onsets.filter((x) => x.time >= 2 * BEATS_PER_BAR && x.time < o.time).length;
+      const j = onsets.filter(
+        (x) => x.time >= 2 * BEATS_PER_BAR && x.time < o.time,
+      ).length;
       const refIv = j === 0 ? 0 : notes[j]!.step - notes[j - 1]!.step;
       if (j === 0) {
-        const cands = [-2, -1, 0, 1, 2].map((d) => notes[0]!.step + d + (rng.chance(0.5) ? 1 : -1));
-        next = rng.weighted(cands, cands.map((s) => (isChordTone(chord, toMidi(key, s)) ? 3 : 0.3)));
+        const cands = [-2, -1, 0, 1, 2].map(
+          (d) => notes[0]!.step + d + (rng.chance(0.5) ? 1 : -1),
+        );
+        next = rng.weighted(
+          cands,
+          cands.map((s) => (isChordTone(chord, toMidi(key, s)) ? 3 : 0.3)),
+        );
       } else next = step + refIv;
-      if (o.strong && !isChordTone(chord, toMidi(key, next))) next += isChordTone(chord, toMidi(key, next + 1)) ? 1 : -1;
+      if (o.strong && !isChordTone(chord, toMidi(key, next)))
+        next += isChordTone(chord, toMidi(key, next + 1)) ? 1 : -1;
     } else {
       const history = intervals.slice(-2).map(String);
       const prevIv = intervals.length ? intervals[intervals.length - 1]! : null;
@@ -466,7 +575,9 @@ function generatePhraseMelody(
         candidates: cands,
         bias: (tok, p) => {
           const d = Number(tok);
-          let w = (p + 0.003) * scoreStep(ctx, chord, o.strong, step, prevIv, repeat, step + d);
+          let w =
+            (p + 0.003) *
+            scoreStep(ctx, chord, o.strong, step, prevIv, repeat, step + d);
           if (nearEnd && Math.abs(d) > 2) w *= 0.4; // approach the cadence smoothly
           return w;
         },
@@ -491,7 +602,12 @@ function bassRoot(chord: Chord, prev: number): number {
   return nearestPc(chord.root, prev, 31, 52);
 }
 
-function generateBass(piece: Piece, rng: Rng, style: StyleDef, activeFrom: number) {
+function generateBass(
+  piece: Piece,
+  rng: Rng,
+  style: StyleDef,
+  activeFrom: number,
+) {
   const out: NoteEvent[] = [];
   let prev = 40;
   const slots = piece.chords;
@@ -500,30 +616,48 @@ function generateBass(piece: Piece, rng: Rng, style: StyleDef, activeFrom: numbe
     if (section.energy < activeFrom) return;
     const { chord } = slot;
     const root = bassRoot(chord, prev);
-    const fifth = root + (chord.intervals.includes(6) && !chord.intervals.includes(7) ? 6 : 7);
+    const fifth =
+      root +
+      (chord.intervals.includes(6) && !chord.intervals.includes(7) ? 6 : 7);
     const third = root + (chord.intervals.includes(3) ? 3 : 4);
     const nextChord = slots[i + 1]?.chord ?? slots[0]!.chord;
     const nextRoot = bassRoot(nextChord, root);
     const v = 0.75 + section.energy * 0.2;
     const add = (t: number, d: number, m: number, vel = v) =>
-      out.push({ track: "bass", time: slot.time + t, dur: d, midi: m, vel: Math.min(1, vel + (rng.next() - 0.5) * 0.08) });
+      out.push({
+        track: "bass",
+        time: slot.time + t,
+        dur: d,
+        midi: m,
+        vel: Math.min(1, vel + (rng.next() - 0.5) * 0.08),
+      });
     const B = slot.beats;
 
     switch (style.bass) {
       case "pop8": {
         for (let t = 0; t < B; t += 0.5) {
           const lastEighth = t === B - 0.5;
-          const m = lastEighth && rng.chance(0.5) ? (nextRoot > root ? nextRoot - 2 : nextRoot + 1) : t === B - 1 && rng.chance(0.3) ? fifth : root;
+          const m =
+            lastEighth && rng.chance(0.5)
+              ? nextRoot > root
+                ? nextRoot - 2
+                : nextRoot + 1
+              : t === B - 1 && rng.chance(0.3)
+                ? fifth
+                : root;
           add(t, 0.45, m, t % 1 === 0 ? v : v * 0.8);
         }
         break;
       }
       case "walking": {
-        const tones = [root, third, fifth, root + 12, fifth - 12].filter((m) => m >= 28 && m <= 55);
+        const tones = [root, third, fifth, root + 12, fifth - 12].filter(
+          (m) => m >= 28 && m <= 55,
+        );
         for (let t = 0; t < B; t++) {
           let m: number;
           if (t === 0) m = root;
-          else if (t === B - 1) m = nextRoot + (rng.chance(0.5) ? 1 : -1); // chromatic approach
+          else if (t === B - 1)
+            m = nextRoot + (rng.chance(0.5) ? 1 : -1); // chromatic approach
           else m = rng.pick(tones);
           add(t, 0.95, m, t === 0 ? v : v * 0.85);
         }
@@ -534,7 +668,8 @@ function generateBass(piece: Piece, rng: Rng, style: StyleDef, activeFrom: numbe
         if (B >= 4) {
           add(1.75, 0.25, root, v * 0.6);
           add(2.5, 1, rng.chance(0.5) ? fifth : root + 12, v * 0.8);
-          if (rng.chance(0.5)) add(3.5, 0.5, nextRoot + (nextRoot > root ? -1 : 1), v * 0.7);
+          if (rng.chance(0.5))
+            add(3.5, 0.5, nextRoot + (nextRoot > root ? -1 : 1), v * 0.7);
         } else add(1, 1, fifth, v * 0.75);
         break;
       }
@@ -546,12 +681,23 @@ function generateBass(piece: Piece, rng: Rng, style: StyleDef, activeFrom: numbe
       case "classical": {
         if (B >= 4) {
           add(0, 2, root);
-          add(2, 2, rng.chance(0.6) ? fifth - 12 >= 31 ? fifth - 12 : fifth : third, v * 0.85);
+          add(
+            2,
+            2,
+            rng.chance(0.6) ? (fifth - 12 >= 31 ? fifth - 12 : fifth) : third,
+            v * 0.85,
+          );
         } else add(0, B, root);
         break;
       }
       case "octaves": {
-        for (let t = 0; t < B; t += 0.5) add(t, 0.42, t % 1 === 0 ? root : root + 12, t % 1 === 0 ? v : v * 0.75);
+        for (let t = 0; t < B; t += 0.5)
+          add(
+            t,
+            0.42,
+            t % 1 === 0 ? root : root + 12,
+            t % 1 === 0 ? v : v * 0.75,
+          );
         break;
       }
     }
@@ -573,7 +719,13 @@ function generateComp(piece: Piece, rng: Rng, style: StyleDef) {
     const v = 0.5 + section.energy * 0.25;
     const hit = (t: number, d: number, notes: number[], vel = v, strum = 0) =>
       notes.forEach((m, i) =>
-        keys.push({ track: "keys", time: slot.time + t + i * strum, dur: d, midi: m, vel: vel * (0.92 + rng.next() * 0.12) })
+        keys.push({
+          track: "keys",
+          time: slot.time + t + i * strum,
+          dur: d,
+          midi: m,
+          vel: vel * (0.92 + rng.next() * 0.12),
+        }),
       );
 
     switch (style.comp) {
@@ -588,10 +740,41 @@ function generateComp(piece: Piece, rng: Rng, style: StyleDef) {
         hit(0, B, voicing, v * 0.9, 0.015);
         break;
       case "jazz": {
-        const patterns = B >= 4
-          ? [[[0, 0.75], [1.5, 0.5]], [[1, 0.5], [2.5, 0.5]], [[0.5, 0.5], [2, 1]], [[0, 1], [2.5, 0.5], [3.5, 0.5]], [[1.5, 1], [3, 0.5]]]
-          : [[[0, 0.75]], [[0.5, 1]], [[0, 0.5], [1.5, 0.5]]];
-        for (const [t, d] of rng.pick(patterns)) hit(t!, d!, voicing, v * (0.75 + rng.next() * 0.25));
+        const patterns =
+          B >= 4
+            ? [
+                [
+                  [0, 0.75],
+                  [1.5, 0.5],
+                ],
+                [
+                  [1, 0.5],
+                  [2.5, 0.5],
+                ],
+                [
+                  [0.5, 0.5],
+                  [2, 1],
+                ],
+                [
+                  [0, 1],
+                  [2.5, 0.5],
+                  [3.5, 0.5],
+                ],
+                [
+                  [1.5, 1],
+                  [3, 0.5],
+                ],
+              ]
+            : [
+                [[0, 0.75]],
+                [[0.5, 1]],
+                [
+                  [0, 0.5],
+                  [1.5, 0.5],
+                ],
+              ];
+        for (const [t, d] of rng.pick(patterns))
+          hit(t!, d!, voicing, v * (0.75 + rng.next() * 0.25));
         break;
       }
       case "lofi":
@@ -605,28 +788,56 @@ function generateComp(piece: Piece, rng: Rng, style: StyleDef) {
         const pattern = [low, top, mid, top];
         for (let t = 0; t < B; t += 0.5) {
           const m = pattern[(t * 2) % 4]!;
-          keys.push({ track: "keys", time: slot.time + t, dur: 0.48, midi: m, vel: v * (t % 1 === 0 ? 0.85 : 0.7) });
+          keys.push({
+            track: "keys",
+            time: slot.time + t,
+            dur: 0.48,
+            midi: m,
+            vel: v * (t % 1 === 0 ? 0.85 : 0.7),
+          });
         }
         break;
       }
       case "arp8": {
         const seq = [...voicing, voicing[0]! + 12];
         for (let t = 0, i = 0; t < B; t += 0.5, i++) {
-          keys.push({ track: "keys", time: slot.time + t, dur: 0.9, midi: seq[i % seq.length]!, vel: v * 0.8 });
+          keys.push({
+            track: "keys",
+            time: slot.time + t,
+            dur: 0.9,
+            midi: seq[i % seq.length]!,
+            vel: v * 0.8,
+          });
         }
         break;
       }
       case "pulse":
-        for (let t = 0; t < B; t += 0.5) hit(t, 0.3, voicing, v * (t % 1 === 0 ? 0.65 : 0.5));
+        for (let t = 0; t < B; t += 0.5)
+          hit(t, 0.3, voicing, v * (t % 1 === 0 ? 0.65 : 0.5));
         break;
     }
 
     // Pad: wide sustained voicing in a higher register
     const pad = voiceLead(chord, prevPad, 55, 79, 4);
     prevPad = pad;
-    pad.forEach((m) => pads.push({ track: "pad", time: slot.time, dur: B, midi: m, vel: 0.45 + section.energy * 0.2 }));
+    pad.forEach((m) =>
+      pads.push({
+        track: "pad",
+        time: slot.time,
+        dur: B,
+        midi: m,
+        vel: 0.45 + section.energy * 0.2,
+      }),
+    );
     // Low fifth anchor for fullness
-    if (section.energy > 0.6) pads.push({ track: "pad", time: slot.time, dur: B, midi: nearestPc(chord.root, 48, 43, 54), vel: 0.35 });
+    if (section.energy > 0.6)
+      pads.push({
+        track: "pad",
+        time: slot.time,
+        dur: B,
+        midi: nearestPc(chord.root, 48, 43, 54),
+        vel: 0.35,
+      });
   }
   return { keys, pads };
 }
@@ -643,18 +854,44 @@ function generateArp(piece: Piece, style: StyleDef) {
     if (style.arp === "up16") {
       const seq = [...voicing, voicing[0]! + 12, ...voicing.slice(1).reverse()];
       for (let t = 0, i = 0; t < slot.beats; t += 0.25, i++)
-        out.push({ track: "arp", time: slot.time + t, dur: 0.22, midi: seq[i % seq.length]!, vel: v * (i % 4 === 0 ? 1 : 0.75) });
+        out.push({
+          track: "arp",
+          time: slot.time + t,
+          dur: 0.22,
+          midi: seq[i % seq.length]!,
+          vel: v * (i % 4 === 0 ? 1 : 0.75),
+        });
     } else if (style.arp === "ostinato8") {
       const root = nearestPc(slot.chord.root, 60, 55, 66);
       const fifth = root + 7;
-      const seq = [root, fifth, root + 12, fifth, root + 12 + (slot.chord.intervals.includes(3) ? 3 : 4), fifth];
+      const seq = [
+        root,
+        fifth,
+        root + 12,
+        fifth,
+        root + 12 + (slot.chord.intervals.includes(3) ? 3 : 4),
+        fifth,
+      ];
       for (let t = 0, i = 0; t < slot.beats; t += 0.5, i++)
-        out.push({ track: "arp", time: slot.time + t, dur: 0.45, midi: seq[i % seq.length]!, vel: v * (i % 2 === 0 ? 0.95 : 0.75) });
+        out.push({
+          track: "arp",
+          time: slot.time + t,
+          dur: 0.45,
+          midi: seq[i % seq.length]!,
+          vel: v * (i % 2 === 0 ? 0.95 : 0.75),
+        });
     } else if (style.arp === "cascade") {
       const seq = [voicing[0]! + 12, ...voicing.slice(1).map((m) => m + 12)];
       const times = [0, 0.75, 1.5, 2.5];
       times.forEach((t, i) => {
-        if (t < slot.beats) out.push({ track: "arp", time: slot.time + t, dur: 0.7, midi: seq[i % seq.length]!, vel: v * 0.8 });
+        if (t < slot.beats)
+          out.push({
+            track: "arp",
+            time: slot.time + t,
+            dur: 0.7,
+            midi: seq[i % seq.length]!,
+            vel: v * 0.8,
+          });
       });
     }
   }
@@ -665,29 +902,79 @@ function generateArp(piece: Piece, style: StyleDef) {
 
 type DrumPattern = Partial<Record<DrumId, string>>;
 
-const DRUM_PATTERNS: Record<string, { full: DrumPattern; light: DrumPattern; fills: DrumPattern[] }> = {
+const DRUM_PATTERNS: Record<
+  string,
+  { full: DrumPattern; light: DrumPattern; fills: DrumPattern[] }
+> = {
   pop: {
-    full: { kick: "x-----x-x-------", snare: "----X-------X---", hatClosed: "x-o-x-o-x-o-x-oo", hatOpen: "--------------x-" },
-    light: { kick: "x-------x-------", rim: "----x-------x---", hatClosed: "x-o-x-o-x-o-x-o-" },
-    fills: [{ snare: "----X-------xooX", tomMid: "------------" }, { snare: "----X-------x---", tomHigh: "-------------x--", tomMid: "--------------x-", tomLow: "---------------x" }],
+    full: {
+      kick: "x-----x-x-------",
+      snare: "----X-------X---",
+      hatClosed: "x-o-x-o-x-o-x-oo",
+      hatOpen: "--------------x-",
+    },
+    light: {
+      kick: "x-------x-------",
+      rim: "----x-------x---",
+      hatClosed: "x-o-x-o-x-o-x-o-",
+    },
+    fills: [
+      { snare: "----X-------xooX", tomMid: "------------" },
+      {
+        snare: "----X-------x---",
+        tomHigh: "-------------x--",
+        tomMid: "--------------x-",
+        tomLow: "---------------x",
+      },
+    ],
   },
   lofi: {
-    full: { kick: "x------x--x-----", snare: "----X-------X---", hatClosed: "x-oxx-o-x-oxx-o-", shaker: "-o-o-o-o-o-o-o-o" },
-    light: { kick: "x---------x-----", rim: "----x-------x---", hatClosed: "x-o-x-o-x-o-x-o-" },
+    full: {
+      kick: "x------x--x-----",
+      snare: "----X-------X---",
+      hatClosed: "x-oxx-o-x-oxx-o-",
+      shaker: "-o-o-o-o-o-o-o-o",
+    },
+    light: {
+      kick: "x---------x-----",
+      rim: "----x-------x---",
+      hatClosed: "x-o-x-o-x-o-x-o-",
+    },
     fills: [{ snare: "----X-------X-gx" }],
   },
   jazz: {
-    full: { ride: "X---x-xoX---x-xo", hatClosed: "----x-------x---", kick: "g---g---g---g---" },
+    full: {
+      ride: "X---x-xoX---x-xo",
+      hatClosed: "----x-------x---",
+      kick: "g---g---g---g---",
+    },
     light: { ride: "x---o-ogx---o-og", hatClosed: "----x-------x---" },
     fills: [{ snare: "------g---x-o-xX" }],
   },
   synthwave: {
-    full: { kick: "X---x---X---x---", snare: "----X-------X---", clap: "----x-------x---", hatClosed: "o-x-o-x-o-x-o-x-", hatOpen: "--o---o---o---o-" },
+    full: {
+      kick: "X---x---X---x---",
+      snare: "----X-------X---",
+      clap: "----x-------x---",
+      hatClosed: "o-x-o-x-o-x-o-x-",
+      hatOpen: "--o---o---o---o-",
+    },
     light: { kick: "x---x---x---x---", hatClosed: "--x---x---x---x-" },
-    fills: [{ snare: "----X---x-x-xxxx" }, { tomHigh: "--------x-x-----", tomMid: "------------x-x-", snare: "----X-----------" }],
+    fills: [
+      { snare: "----X---x-x-xxxx" },
+      {
+        tomHigh: "--------x-x-----",
+        tomMid: "------------x-x-",
+        snare: "----X-----------",
+      },
+    ],
   },
   cinematic: {
-    full: { tomLow: "X-----x-x-------", tomMid: "----x-------x-x-", snare: "------------g-g-" },
+    full: {
+      tomLow: "X-----x-x-------",
+      tomMid: "----x-------x-x-",
+      snare: "------------g-g-",
+    },
     light: { tomLow: "x-------x-------" },
     fills: [{ tomLow: "X---x---x-x-xxxx", tomMid: "--x---x---x-x---" }],
   },
@@ -705,7 +992,10 @@ function generateDrums(piece: Piece, rng: Rng, style: StyleDef): DrumEvent[] {
     const pattern = section.energy >= 0.7 ? kit.full : kit.light;
     for (let bar = 0; bar < section.bars; bar++) {
       const barTime = (section.startBar + bar) * BEATS_PER_BAR;
-      const isFillBar = bar === section.bars - 1 && si < sections.length - 1 && section.energy >= 0.55;
+      const isFillBar =
+        bar === section.bars - 1 &&
+        si < sections.length - 1 &&
+        section.energy >= 0.55;
       let pat: DrumPattern = pattern;
       if (isFillBar) {
         const fill = rng.pick(kit.fills);
@@ -715,24 +1005,48 @@ function generateDrums(piece: Piece, rng: Rng, style: StyleDef): DrumEvent[] {
           pat[drum as DrumId] = base + line!.slice(8);
         }
         // Thin the hats under the fill
-        if (pat.hatClosed) pat.hatClosed = pat.hatClosed.slice(0, 8) + "--------";
+        if (pat.hatClosed)
+          pat.hatClosed = pat.hatClosed.slice(0, 8) + "--------";
       }
       for (const [drum, line] of Object.entries(pat)) {
         for (let s = 0; s < 16; s++) {
           const ch = line![s];
           if (!ch || ch === "-") continue;
           if (ch === "g" && rng.chance(0.4)) continue;
-          out.push({ track: "drums", time: barTime + s * 0.25, drum: drum as DrumId, vel: VEL[ch]! * (0.9 + rng.next() * 0.15) });
+          out.push({
+            track: "drums",
+            time: barTime + s * 0.25,
+            drum: drum as DrumId,
+            vel: VEL[ch]! * (0.9 + rng.next() * 0.15),
+          });
         }
       }
       // Jazz: improvised snare comping
       if (style.drums === "jazz" && section.energy >= 0.7 && !isFillBar) {
-        for (let s = 2; s < 16; s += 4) if (rng.chance(0.25)) out.push({ track: "drums", time: barTime + s * 0.25, drum: "snare", vel: 0.2 + rng.next() * 0.25 });
+        for (let s = 2; s < 16; s += 4)
+          if (rng.chance(0.25))
+            out.push({
+              track: "drums",
+              time: barTime + s * 0.25,
+              drum: "snare",
+              vel: 0.2 + rng.next() * 0.25,
+            });
       }
     }
     if (si > 0 && section.energy >= 0.6 && style.drums !== "jazz")
-      out.push({ track: "drums", time: section.startBar * BEATS_PER_BAR, drum: "crash", vel: 0.8 });
-    if (style.drums === "jazz" && si > 0) out.push({ track: "drums", time: section.startBar * BEATS_PER_BAR, drum: "crash", vel: 0.5 });
+      out.push({
+        track: "drums",
+        time: section.startBar * BEATS_PER_BAR,
+        drum: "crash",
+        vel: 0.8,
+      });
+    if (style.drums === "jazz" && si > 0)
+      out.push({
+        track: "drums",
+        time: section.startBar * BEATS_PER_BAR,
+        drum: "crash",
+        vel: 0.5,
+      });
   });
   return out;
 }
@@ -746,7 +1060,8 @@ function swingTime(t: number, amount: number, unit: 8 | 16): number {
   const base = t - pos * grid;
   // Piecewise-linear warp: the off-beat (0.5) moves to 0.5 + amount/6
   const off = 0.5 + amount / 6;
-  const warped = pos <= 0.5 ? (pos / 0.5) * off : off + ((pos - 0.5) / 0.5) * (1 - off);
+  const warped =
+    pos <= 0.5 ? (pos / 0.5) * off : off + ((pos - 0.5) / 0.5) * (1 - off);
   return base + warped * grid;
 }
 
@@ -795,7 +1110,9 @@ export function compose(settings: Settings): Piece {
   };
 
   // Melody
-  const melRng = createRng(settings.partSeeds.melody ?? deriveSeed(settings.seed, "melody"));
+  const melRng = createRng(
+    settings.partSeeds.melody ?? deriveSeed(settings.seed, "melody"),
+  );
   const temperature = temperatureFor(settings.creativity);
   const [low, high] = style.melodyRange;
   const rChain = rhythmChain(style.id);
@@ -804,7 +1121,8 @@ export function compose(settings: Settings): Piece {
   const lead: NoteEvent[] = [];
 
   sections.forEach((section, si) => {
-    const baseKind = section.kind === "A'" ? "A" : section.kind === "B'" ? "B" : section.kind;
+    const baseKind =
+      section.kind === "A'" ? "A" : section.kind === "B'" ? "B" : section.kind;
     const phraseStart = section.startBar * BEATS_PER_BAR;
     const slots = chords.filter((c) => c.section === si);
     const isB = baseKind === "B";
@@ -825,14 +1143,22 @@ export function compose(settings: Settings): Piece {
     let rhythm: string[][];
     if (remembered) {
       rhythm = remembered.rhythm.map((b) => [...b]);
-      if (section.kind !== baseKind) rhythm[rhythm.length - 1] = melRng.pick(style.cadenceRhythms).split(" ");
+      if (section.kind !== baseKind)
+        rhythm[rhythm.length - 1] = melRng
+          .pick(style.cadenceRhythms)
+          .split(" ");
     } else {
       rhythm = [];
       for (let b = 0; b < section.bars; b++) {
         const isPhraseEnd = (b + 1) % 4 === 0;
-        if (isPhraseEnd) rhythm.push(melRng.pick(style.cadenceRhythms).split(" "));
-        else if (b % 4 === 2 && melRng.chance(0.6)) rhythm.push([...rhythm[b - 2]!]); // rhythmic repetition
-        else rhythm.push(sampleRhythmBar(rChain, melRng, section.energy, temperature));
+        if (isPhraseEnd)
+          rhythm.push(melRng.pick(style.cadenceRhythms).split(" "));
+        else if (b % 4 === 2 && melRng.chance(0.6))
+          rhythm.push([...rhythm[b - 2]!]); // rhythmic repetition
+        else
+          rhythm.push(
+            sampleRhythmBar(rChain, melRng, section.energy, temperature),
+          );
       }
       memory.set(baseKind, { rhythm });
     }
@@ -840,9 +1166,14 @@ export function compose(settings: Settings): Piece {
     // Pitches, phrase by phrase (4 bars)
     for (let p = 0; p < section.bars; p += 4) {
       const pStart = phraseStart + p * BEATS_PER_BAR;
-      const pSlots = slots.filter((s) => s.time >= pStart && s.time < pStart + 4 * BEATS_PER_BAR);
+      const pSlots = slots.filter(
+        (s) => s.time >= pStart && s.time < pStart + 4 * BEATS_PER_BAR,
+      );
       const isSectionEnd = p + 4 >= section.bars;
-      const startTarget = isB ? lastStep + 2 : fromMidi(key, nearestPc(key.tonic, ctx.center)) + melRng.pick([0, 2, 4]);
+      const startTarget = isB
+        ? lastStep + 2
+        : fromMidi(key, nearestPc(key.tonic, ctx.center)) +
+          melRng.pick([0, 2, 4]);
       const phrase = generatePhraseMelody(
         ctx,
         pSlots.length ? pSlots : slots,
@@ -850,7 +1181,7 @@ export function compose(settings: Settings): Piece {
         pStart,
         startTarget,
         isSectionEnd ? ending : "half",
-        { useSequence: melRng.chance(0.55) }
+        { useSequence: melRng.chance(0.55) },
       );
       for (const n of phrase) {
         lead.push({
@@ -858,7 +1189,9 @@ export function compose(settings: Settings): Piece {
           time: pStart + n.time,
           dur: n.dur * 0.94,
           midi: toMidi(key, n.step),
-          vel: (n.strong ? 0.82 : 0.68) * (0.85 + section.energy * 0.15) + (melRng.next() - 0.5) * 0.08,
+          vel:
+            (n.strong ? 0.82 : 0.68) * (0.85 + section.energy * 0.15) +
+            (melRng.next() - 0.5) * 0.08,
         });
         lastStep = n.step;
       }
@@ -866,13 +1199,23 @@ export function compose(settings: Settings): Piece {
   });
 
   // Accompaniment
-  const compRng = createRng(settings.partSeeds.comp ?? deriveSeed(settings.seed, "comp"));
-  const bassRng = createRng(settings.partSeeds.bass ?? deriveSeed(settings.seed, "bass"));
-  const drumRng = createRng(settings.partSeeds.drums ?? deriveSeed(settings.seed, "drums"));
+  const compRng = createRng(
+    settings.partSeeds.comp ?? deriveSeed(settings.seed, "comp"),
+  );
+  const bassRng = createRng(
+    settings.partSeeds.bass ?? deriveSeed(settings.seed, "bass"),
+  );
+  const drumRng = createRng(
+    settings.partSeeds.drums ?? deriveSeed(settings.seed, "drums"),
+  );
   const { keys, pads } = generateComp(piece, compRng, style);
   const bass = generateBass(piece, bassRng, style, 0.3);
-  const arp = generateArp(piece, style).filter((n) => piece.sections[sectionIndexAt(piece, n.time)]!.energy >= 0.7);
-  const padFiltered = pads.filter((n) => piece.sections[sectionIndexAt(piece, n.time)]!.energy >= 0.5);
+  const arp = generateArp(piece, style).filter(
+    (n) => piece.sections[sectionIndexAt(piece, n.time)]!.energy >= 0.7,
+  );
+  const padFiltered = pads.filter(
+    (n) => piece.sections[sectionIndexAt(piece, n.time)]!.energy >= 0.5,
+  );
   const drums = generateDrums(piece, drumRng, style);
 
   // Swing + humanise
@@ -884,16 +1227,25 @@ export function compose(settings: Settings): Piece {
     .map((n) => {
       const start = sw(n.time);
       const end = sw(n.time + n.dur);
-      return { ...n, time: n.track === "pad" ? start : human(start), dur: Math.max(0.05, end - start), vel: clamp01(n.vel) };
+      return {
+        ...n,
+        time: n.track === "pad" ? start : human(start),
+        dur: Math.max(0.05, end - start),
+        vel: clamp01(n.vel),
+      };
     })
     .sort((a, b) => a.time - b.time);
-  piece.drums = drums.map((d) => ({ ...d, time: human(sw(d.time)), vel: clamp01(d.vel) })).sort((a, b) => a.time - b.time);
+  piece.drums = drums
+    .map((d) => ({ ...d, time: human(sw(d.time)), vel: clamp01(d.vel) }))
+    .sort((a, b) => a.time - b.time);
   return piece;
 }
 
 function sectionIndexAt(piece: Piece, time: number): number {
   const bar = Math.floor(time / BEATS_PER_BAR);
-  const idx = piece.sections.findIndex((s) => bar >= s.startBar && bar < s.startBar + s.bars);
+  const idx = piece.sections.findIndex(
+    (s) => bar >= s.startBar && bar < s.startBar + s.bars,
+  );
   return idx < 0 ? 0 : idx;
 }
 
@@ -902,19 +1254,28 @@ const clamp01 = (v: number) => Math.max(0.02, Math.min(1, v));
 /** Markov suggestions for replacing the chord at slot `index`. */
 export function chordSuggestions(piece: Piece, index: number, k = 6) {
   const chain = harmonyChain(piece.style.id);
-  const history = piece.chords.slice(Math.max(0, index - 2), index).map((c) => c.chord.token);
+  const history = piece.chords
+    .slice(Math.max(0, index - 2), index)
+    .map((c) => c.chord.token);
   const next = piece.chords[index + 1]?.chord.token;
   const dist = chain.distribution(history);
   const vocab = [...chain.vocabulary];
   const scored = vocab.map((tok) => {
     // Square roots soften the order-2 chain so that alternatives remain visible
     let p = Math.sqrt((dist.get(tok) ?? 0) + 0.002);
-    if (next) p *= Math.sqrt((chain.distribution([...history.slice(-1), tok]).get(next) ?? 0) + 0.05);
+    if (next)
+      p *= Math.sqrt(
+        (chain.distribution([...history.slice(-1), tok]).get(next) ?? 0) + 0.05,
+      );
     return { token: tok, p };
   });
   const total = scored.reduce((a, s) => a + s.p, 0);
   return scored
-    .map((s) => ({ ...s, p: s.p / total, chord: buildChord(piece.key, s.token, piece.settings.extension) }))
+    .map((s) => ({
+      ...s,
+      p: s.p / total,
+      chord: buildChord(piece.key, s.token, piece.settings.extension),
+    }))
     .sort((a, b) => b.p - a.p)
     .slice(0, k);
 }

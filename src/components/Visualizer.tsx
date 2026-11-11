@@ -25,8 +25,15 @@ const palettes = [
 
 type VisualizationMode = {
   name: string;
-  init: (scene: THREE.Scene, palette: typeof palettes[0]) => any;
-  animate: (state: any, time: number, bass: number, mid: number, high: number, freq: Uint8Array) => void;
+  init: (scene: THREE.Scene, palette: (typeof palettes)[0]) => any;
+  animate: (
+    state: any,
+    time: number,
+    bass: number,
+    mid: number,
+    high: number,
+    freq: Uint8Array,
+  ) => void;
   cleanup: (state: any) => void;
 };
 
@@ -53,7 +60,8 @@ const equalizerMode: VisualizationMode = {
   },
   animate: (state, time, bass, mid, high, freq) => {
     state.bars.forEach((bar: THREE.Mesh, i: number) => {
-      const value = freq[Math.floor(i * freq.length / state.bars.length)] / 255;
+      const value =
+        freq[Math.floor((i * freq.length) / state.bars.length)] / 255;
       const height = 0.5 + value * 15;
       bar.scale.y = height;
       bar.position.y = height / 2 - 3;
@@ -95,7 +103,8 @@ const circularMode: VisualizationMode = {
   },
   animate: (state, time, bass, mid, high, freq) => {
     state.bars.forEach((bar: THREE.Mesh, i: number) => {
-      const value = freq[Math.floor(i * freq.length / state.bars.length)] / 255;
+      const value =
+        freq[Math.floor((i * freq.length) / state.bars.length)] / 255;
       bar.scale.y = 0.5 + value * 8;
       const { angle, baseRadius } = bar.userData;
       const r = baseRadius + value * 3;
@@ -154,7 +163,8 @@ const particleMode: VisualizationMode = {
     return { points, velocities, basePositions: positions.slice() };
   },
   animate: (state, time, bass, mid, high, freq) => {
-    const positions = state.points.geometry.attributes.position.array as Float32Array;
+    const positions = state.points.geometry.attributes.position
+      .array as Float32Array;
     const explosion = bass * 2;
 
     for (let i = 0; i < positions.length; i += 3) {
@@ -204,13 +214,15 @@ const tunnelMode: VisualizationMode = {
       const segments = 64;
       for (let i = 0; i <= segments; i++) {
         const angle = (i / segments) * Math.PI * 2;
-        points.push(new THREE.Vector3(Math.cos(angle) * 5, Math.sin(angle) * 5, -r * 2));
+        points.push(
+          new THREE.Vector3(Math.cos(angle) * 5, Math.sin(angle) * 5, -r * 2),
+        );
       }
       const geo = new THREE.BufferGeometry().setFromPoints(points);
       const mat = new THREE.LineBasicMaterial({
         color: palette.colors[r % palette.colors.length],
         transparent: true,
-        opacity: 1 - r / ringCount * 0.7,
+        opacity: 1 - (r / ringCount) * 0.7,
       });
       const ring = new THREE.Line(geo, mat);
       ring.userData = { baseZ: -r * 2, segments };
@@ -235,7 +247,7 @@ const tunnelMode: VisualizationMode = {
       }
 
       ring.geometry.attributes.position.needsUpdate = true;
-      ring.position.z = ring.userData.baseZ + (time * 10) % 60 - 30;
+      ring.position.z = ring.userData.baseZ + ((time * 10) % 60) - 30;
 
       if (ring.position.z > 5) {
         ring.position.z -= 60;
@@ -307,9 +319,9 @@ const helixMode: VisualizationMode = {
 
     state.spheres.forEach((sphere: THREE.Mesh) => {
       const { index, strand } = sphere.userData;
-      const y = (index / 50) * 20 - 10 + (time * 3) % 20;
+      const y = (index / 50) * 20 - 10 + ((time * 3) % 20);
       const wrappedY = ((y + 10) % 20) - 10;
-      const angle = index * 0.2 + speed + (strand * Math.PI);
+      const angle = index * 0.2 + speed + strand * Math.PI;
       const freqIndex = Math.floor((index / 100) * freq.length);
       const pulse = freq[freqIndex] / 255;
 
@@ -325,7 +337,7 @@ const helixMode: VisualizationMode = {
     state.lines.forEach((line: THREE.Line) => {
       const { index } = line.userData;
       const positions = line.geometry.attributes.position.array as Float32Array;
-      const y = (index / 50) * 20 - 10 + (time * 3) % 20;
+      const y = (index / 50) * 20 - 10 + ((time * 3) % 20);
       const wrappedY = ((y + 10) % 20) - 10;
       const angle1 = index * 0.2 + speed;
       const angle2 = angle1 + Math.PI;
@@ -416,7 +428,9 @@ const starfieldMode: VisualizationMode = {
       positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
       positions[i * 3 + 2] = Math.random() * -100;
 
-      const color = new THREE.Color(palette.colors[Math.floor(Math.random() * palette.colors.length)]);
+      const color = new THREE.Color(
+        palette.colors[Math.floor(Math.random() * palette.colors.length)],
+      );
       colors[i * 3] = color.r;
       colors[i * 3 + 1] = color.g;
       colors[i * 3 + 2] = color.b;
@@ -438,7 +452,8 @@ const starfieldMode: VisualizationMode = {
     return { stars, baseSpeed: 0.5 };
   },
   animate: (state, time, bass, mid, high, freq) => {
-    const positions = state.stars.geometry.attributes.position.array as Float32Array;
+    const positions = state.stars.geometry.attributes.position
+      .array as Float32Array;
     const speed = state.baseSpeed + bass * 3;
 
     for (let i = 0; i < positions.length; i += 3) {
@@ -482,13 +497,14 @@ const waveGridMode: VisualizationMode = {
     return { plane, size };
   },
   animate: (state, time, bass, mid, high, freq) => {
-    const positions = state.plane.geometry.attributes.position.array as Float32Array;
+    const positions = state.plane.geometry.attributes.position
+      .array as Float32Array;
     const size = state.size + 1;
 
     for (let i = 0; i < positions.length; i += 3) {
       const x = positions[i];
       const y = positions[i + 1];
-      const freqIndex = Math.floor(Math.abs(x + 15) / 30 * freq.length);
+      const freqIndex = Math.floor((Math.abs(x + 15) / 30) * freq.length);
       const freqValue = freq[freqIndex] / 255;
 
       const wave1 = Math.sin(x * 0.5 + time * 3) * bass * 3;
@@ -558,7 +574,8 @@ const bouncingMode: VisualizationMode = {
 
       // Bounce height based on frequency
       const bounceHeight = 3 + freqValue * 8;
-      sphere.position.y = -4 + Math.abs(Math.sin(time * 3 + phase)) * bounceHeight;
+      sphere.position.y =
+        -4 + Math.abs(Math.sin(time * 3 + phase)) * bounceHeight;
 
       // Scale pulse
       sphere.scale.setScalar(1 + freqValue * 0.5);
@@ -649,7 +666,9 @@ export function Visualizer({ isPlaying, genre, mode, seed }: VisualizerProps) {
   const modeRef = useRef<VisualizationMode | null>(null);
   const timeRef = useRef(0);
 
-  const [currentMode, setCurrentMode] = useState<VisualizationMode | null>(null);
+  const [currentMode, setCurrentMode] = useState<VisualizationMode | null>(
+    null,
+  );
   const [palette, setPalette] = useState(palettes[0]);
 
   // Pick random mode and palette based on seed
@@ -668,7 +687,10 @@ export function Visualizer({ isPlaying, genre, mode, seed }: VisualizerProps) {
     if (stateRef.current && modeRef.current) {
       modeRef.current.cleanup(stateRef.current);
     }
-    if (rendererRef.current && containerRef.current.contains(rendererRef.current.domElement)) {
+    if (
+      rendererRef.current &&
+      containerRef.current.contains(rendererRef.current.domElement)
+    ) {
       containerRef.current.removeChild(rendererRef.current.domElement);
       rendererRef.current.dispose();
     }
@@ -709,19 +731,25 @@ export function Visualizer({ isPlaying, genre, mode, seed }: VisualizerProps) {
     // Initialize visualization mode
     stateRef.current = currentMode.init(scene, palette);
     modeRef.current = currentMode;
-
   }, [currentMode, palette]);
 
   // Animation
   const animate = useCallback(() => {
-    if (!sceneRef.current || !cameraRef.current || !rendererRef.current || !modeRef.current) {
+    if (
+      !sceneRef.current ||
+      !cameraRef.current ||
+      !rendererRef.current ||
+      !modeRef.current
+    ) {
       animationIdRef.current = requestAnimationFrame(animate);
       return;
     }
 
     const analyser = getAnalyser();
     let freq = new Uint8Array(128);
-    let bass = 0, mid = 0, high = 0;
+    let bass = 0,
+      mid = 0,
+      high = 0;
 
     if (analyser && isPlaying) {
       freq = new Uint8Array(analyser.frequencyBinCount);
@@ -735,7 +763,14 @@ export function Visualizer({ isPlaying, genre, mode, seed }: VisualizerProps) {
     timeRef.current += 0.016;
 
     if (stateRef.current) {
-      modeRef.current.animate(stateRef.current, timeRef.current, bass, mid, high, freq);
+      modeRef.current.animate(
+        stateRef.current,
+        timeRef.current,
+        bass,
+        mid,
+        high,
+        freq,
+      );
     }
 
     // Gentle camera movement
@@ -755,7 +790,8 @@ export function Visualizer({ isPlaying, genre, mode, seed }: VisualizerProps) {
     }
 
     const handleResize = () => {
-      if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
+      if (!containerRef.current || !cameraRef.current || !rendererRef.current)
+        return;
       const w = containerRef.current.clientWidth;
       const h = containerRef.current.clientHeight;
       cameraRef.current.aspect = w / h;
