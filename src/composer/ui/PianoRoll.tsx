@@ -10,6 +10,10 @@ type Props = {
   playing: boolean;
   hidden: Set<TrackId>;
   onSeek: (beat: number) => void;
+  /** Model's predicted liking per bar (drawn as a strip under the section labels). */
+  barScores?: number[];
+  /** Ratings given on this take. */
+  marks?: { bar: number; reward: number }[];
 };
 
 const DRUM_ROWS = [
@@ -33,6 +37,8 @@ export function PianoRoll({
   playing,
   hidden,
   onSeek,
+  barScores,
+  marks,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -100,6 +106,39 @@ export function PianoRoll({
         g.font = "600 11px ui-sans-serif, system-ui";
         g.fillText(s.label, sx + 6, 14);
       });
+      // Taste: predicted liking per bar + ratings given on this take
+      if (barScores) {
+        const lim = Math.max(0.25, ...barScores.map(Math.abs));
+        barScores.forEach((sc, bar) => {
+          const bx = x(bar * piece.beatsPerBar) + 1;
+          const bw = piece.beatsPerBar * pxBeat - 2;
+          const a = Math.min(1, Math.abs(sc) / lim) * 0.75 + 0.05;
+          g.fillStyle =
+            sc >= 0 ? `rgba(52,211,153,${a})` : `rgba(251,113,133,${a})`;
+          g.fillRect(bx, 17, bw, 3);
+        });
+      }
+      if (marks) {
+        const count = new Map<number, number>();
+        for (const mk of marks) {
+          const k = count.get(mk.bar) ?? 0;
+          count.set(mk.bar, k + 1);
+          const cx = x((mk.bar + 1) * piece.beatsPerBar) - 8 - k * 9;
+          g.fillStyle = mk.reward > 0 ? "#34d399" : "#fb7185";
+          g.beginPath();
+          if (mk.reward > 0) {
+            g.moveTo(cx, 5);
+            g.lineTo(cx + 4, 12);
+            g.lineTo(cx - 4, 12);
+          } else {
+            g.moveTo(cx, 12);
+            g.lineTo(cx + 4, 5);
+            g.lineTo(cx - 4, 5);
+          }
+          g.closePath();
+          g.fill();
+        }
+      }
       for (let b = 0; b <= piece.beats; b++) {
         const isBar = b % piece.beatsPerBar === 0;
         g.strokeStyle = isBar
@@ -196,7 +235,7 @@ export function PianoRoll({
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [piece, playing, hidden, getPosition]);
+  }, [piece, playing, hidden, getPosition, barScores, marks]);
 
   return (
     <div ref={wrapRef} className="relative w-full">

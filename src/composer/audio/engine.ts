@@ -305,7 +305,14 @@ export class Engine {
     return 60 / this.tempo;
   }
 
+  /**
+   * Called when playback wraps around in loop mode. Returning a piece swaps it
+   * in seamlessly for the next pass (used to evolve a new take each loop).
+   */
+  onLoopEnd: (() => Piece | null) | null = null;
+
   setPiece(piece: Piece) {
+    if (piece === this.piece) return;
     const pos = this.playing ? this.position() : 0;
     this.piece = piece;
     this.events = flatten(piece);
@@ -410,6 +417,11 @@ export class Engine {
         const endTime = this.startTime + this.piece.beats * spb;
         if (this.loop) {
           if (endTime > horizon) break;
+          const next = this.onLoopEnd?.();
+          if (next && next !== this.piece) {
+            this.piece = next;
+            this.events = flatten(next);
+          }
           this.startTime = endTime;
           this.cursor = 0;
           continue;

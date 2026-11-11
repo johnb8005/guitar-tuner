@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { compose, type Settings } from "../generate";
+import { compose, type Piece, type Settings } from "../generate";
+import { tasteFrom } from "../bandit";
 import { randomSeed } from "../random";
 import { STYLES, TRACK_IDS, type StyleId, type TrackId } from "../styles";
 import { KEY_NAMES, SCALES, type Extension, type ScaleId } from "../theory";
@@ -22,6 +23,7 @@ import {
   Spectrum,
 } from "./components";
 import { PianoRoll } from "./PianoRoll";
+import { FeedbackButtons, TastePanel, useTaste } from "./TastePanel";
 import { mixForStyle, readHash, settingsForStyle, writeHash } from "./state";
 
 let sharedEngine: Engine | null = null;
@@ -35,8 +37,72 @@ function initialState(): { settings: Settings; mix: Mix } {
 
 export function ComposerPage() {
   const [{ settings, mix }, setState] = useState(initialState);
-  const piece = useMemo(() => compose(settings), [settings]);
   const engine = useMemo(() => (sharedEngine ??= new Engine(mix)), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Learning from feedback (linear Thompson sampling)
+  const taste = useTaste(settings.style);
+  const [learning, setLearning] = useState(true);
+  const [evolve, setEvolve] = useState(true);
+  const [exploration, setExploration] = useState(0.5);
+  const [take, setTake] = useState(0);
+  const [flash, setFlash] = useState<{ reward: number; n: number } | null>(
+    null,
+  );
+
+  // Pieces are cached per (settings, take, learning) so the loop hand-off and
+  // React render agree on the exact same object.
+  const cache = useRef(new WeakMap<Settings, Map<string, Piece>>());
+  const makePiece = useCallback(
+    (
+      s: Settings,
+      t: number,
+      learn: boolean,
+      explore: number,
+      model = taste.model,
+    ) => {
+      let byTake = cache.current.get(s);
+      if (!byTake) cache.current.set(s, (byTake = new Map()));
+      const key = `${t}|${learn ? explore : "off"}`;
+      let p = byTake.get(key);
+      if (!p) {
+        p = compose(
+          s,
+          learn ? { taste: tasteFrom(model, explore), take: t } : { take: t },
+        );
+        byTake.set(key, p);
+      }
+      return p;
+    },
+    [taste.model],
+  );
+  const piece = useMemo(
+    () => makePiece(settings, take, learning, exploration),
+    [makePiece, settings, take, learning, exploration],
+  );
+
+  // At the end of each loop, compose the next take with the updated model.
+  const live = useRef({
+    settings,
+    take,
+    learning,
+    evolve,
+    exploration,
+    makePiece,
+  });
+  live.current = { settings, take, learning, evolve, exploration, makePiece };
+  useEffect(() => {
+    engine.onLoopEnd = () => {
+      const l = live.current;
+      if (!l.learning || !l.evolve) return null;
+      const next = l.makePiece(l.settings, l.take + 1, true, l.exploration);
+      l.take = l.take + 1;
+      setTake(l.take);
+      return next;
+    };
+    return () => {
+      engine.onLoopEnd = null;
+    };
+  }, [engine]);
   const [playing, setPlaying] = useState(false);
   const [loop, setLoop] = useState(true);
   const [currentChord, setCurrentChord] = useState(-1);
@@ -116,6 +182,7 @@ export function ComposerPage() {
 
   const generate = useCallback(() => {
     generation.current++;
+    setTake(0);
     setState((s) => ({
       ...s,
       settings: {
@@ -128,6 +195,7 @@ export function ComposerPage() {
   }, []);
 
   const changeStyle = (style: StyleId) => {
+    setTake(0);
     setState((s) => ({
       settings: { ...settingsForStyle(style, s.settings), seed: randomSeed() },
       mix: mixForStyle(style, s.mix),
@@ -158,6 +226,43 @@ export function ComposerPage() {
       tracks: { ...m.tracks, [id]: { ...m.tracks[id], ...patch } },
     }));
 
+  const pieceKey = `${settings.seed}:${piece.take}`;
+  const rate = useCallback(
+    (reward: 1 | -1) => {
+      if (!engine.playing) return;
+      // Allow ~a quarter second of reaction time
+      const beat = Math.max(
+        0,
+        engine.position() - 0.25 * (settings.tempo / 60),
+      );
+      const bar = Math.min(
+        piece.barFeatures.length - 1,
+        Math.floor(beat / piece.beatsPerBar),
+      );
+      const phi = piece.barFeatures[bar];
+      if (!phi) return;
+      taste.rate(phi, reward, {
+        at: Date.now(),
+        take: piece.take,
+        bar,
+        key: pieceKey,
+      });
+      setFlash((f) => ({ reward, n: (f?.n ?? 0) + 1 }));
+    },
+    [engine, piece, pieceKey, settings.tempo, taste],
+  );
+  const marks = useMemo(
+    () =>
+      taste.model.history
+        .filter((h) => h.key === pieceKey)
+        .map((h) => ({ bar: h.bar, reward: h.reward })),
+    [taste.model, taste.version, pieceKey], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const barScores = useMemo(
+    () => piece.barFeatures.map((phi) => taste.model.predict(phi)),
+    [piece, taste.model, taste.version], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -168,10 +273,17 @@ export function ComposerPage() {
         if (engine.playing) engine.stop();
         else play();
       } else if (e.key === "g" || e.key === "G") generate();
+      else if (e.key === "ArrowUp" && engine.playing) {
+        e.preventDefault();
+        rate(1);
+      } else if (e.key === "ArrowDown" && engine.playing) {
+        e.preventDefault();
+        rate(-1);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [engine, play, generate]);
+  }, [engine, play, generate, rate]);
 
   const exportWav = async () => {
     setExporting(true);
@@ -215,6 +327,13 @@ export function ComposerPage() {
             <span className="font-mono text-zinc-300">
               {settings.seed.toString(36)}
             </span>
+            {learning && (
+              <>
+                {" "}
+                ·{" "}
+                <span className="text-emerald-300">take {piece.take + 1}</span>
+              </>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -222,6 +341,7 @@ export function ComposerPage() {
             analyser={engine.graph?.analyser ?? null}
             active={playing}
           />
+          <FeedbackButtons enabled={playing} onRate={rate} flash={flash} />
           <button
             onClick={() => (playing ? engine.stop() : play())}
             className={`flex h-12 items-center gap-2 rounded-xl px-5 font-semibold shadow-lg transition ${
@@ -550,6 +670,32 @@ export function ComposerPage() {
               playing={playing}
               hidden={hidden}
               onSeek={(beat) => play(beat)}
+              barScores={learning ? barScores : undefined}
+              marks={marks}
+            />
+          </Panel>
+
+          <Panel
+            title="Teach it your taste · linear Thompson sampling"
+            action={
+              <span className="text-[11px] text-zinc-500">
+                👍 / 👎 or ↑ / ↓ rate the bar that is playing
+              </span>
+            }
+          >
+            <TastePanel
+              model={taste.model}
+              version={taste.version}
+              learning={learning}
+              setLearning={setLearning}
+              evolve={evolve}
+              setEvolve={setEvolve}
+              exploration={exploration}
+              setExploration={setExploration}
+              onReset={taste.reset}
+              onNextTake={() => setTake((t) => t + 1)}
+              take={piece.take}
+              styleName={piece.style.name}
             />
           </Panel>
 

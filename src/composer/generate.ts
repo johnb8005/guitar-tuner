@@ -12,6 +12,15 @@
 //   4. Parts      – voice-led keys & pad, bass lines, arpeggios and drums per style.
 
 import { MarkovChain } from "./markov";
+import {
+  DIM,
+  dot,
+  harmonyFeatures,
+  MELODY_DIMS,
+  melodyFeatures,
+  pieceBarFeatures,
+  type Taste,
+} from "./bandit";
 import { createRng, deriveSeed, type Rng } from "./random";
 import {
   buildChord,
@@ -109,9 +118,34 @@ export type Piece = {
   drums: DrumEvent[];
   beats: number;
   beatsPerBar: number;
+  take: number;
+  /** Feature vector of every bar (for learning from feedback). */
+  barFeatures: number[][];
 };
 
 export const BEATS_PER_BAR = 4;
+
+export type ComposeOptions = {
+  /** Learned taste: when present, candidates are chosen by Thompson sampling. */
+  taste?: Taste;
+  /** Take number: each take re-rolls the parts, so a loop can evolve. */
+  take?: number;
+};
+
+/** Seed of a part, varied per take. */
+function partSeed(
+  settings: Settings,
+  part: keyof Settings["partSeeds"],
+  take: number,
+) {
+  const base = settings.partSeeds[part] ?? deriveSeed(settings.seed, part);
+  return take ? deriveSeed(base, `take${take}`) : base;
+}
+
+/** Candidates per decision when a taste model is steering. */
+const TASTE_CANDIDATES = 6;
+/** How strongly the learned taste weighs against Markov likelihood (per chord). */
+const TASTE_WEIGHT = 3;
 
 export function defaultSettings(style: StyleId = "pop", seed = 1): Settings {
   const s = getStyle(style);
@@ -204,6 +238,7 @@ function sampleChordSequence(
     end: "half" | "authentic";
     temperature: number;
     prefix?: string[];
+    judge?: (seq: string[]) => number;
   },
 ): string[] {
   const candidates: { seq: string[]; score: number }[] = [];
@@ -220,6 +255,7 @@ function sampleChordSequence(
       if (i > 0 && full[i] === full[i - 1]) score -= 2.5;
     }
     if (opts.start === "away" && seq[0] === "1") score -= 3;
+    if (opts.judge) score += TASTE_WEIGHT * seq.length * opts.judge(seq);
     candidates.push({ seq, score });
   }
   const best = Math.max(...candidates.map((c) => c.score));
@@ -304,10 +340,31 @@ function generateHarmony(
   settings: Settings,
   style: StyleDef,
   sections: Section[],
+  take: number,
+  taste?: Taste,
 ): Slot[][] {
-  const rng = createRng(
-    settings.partSeeds.harmony ?? deriveSeed(settings.seed, "harmony"),
+  const rng = createRng(partSeed(settings, "harmony", take));
+  const tasteRng = createRng(
+    deriveSeed(partSeed(settings, "harmony", take), "taste"),
   );
+  const key: Key = { tonic: settings.tonic, scale: settings.scale };
+  // Thompson sampling: one θ draw per section decision, scored on harmony traits.
+  const judgeFor = (prefix: string[]) => {
+    if (!taste) return undefined;
+    const theta = taste.draw(tasteRng);
+    return (seq: string[]) => {
+      const chords = [...prefix.slice(-1), ...seq].map((t) =>
+        buildChord(key, t, settings.extension),
+      );
+      let total = 0;
+      for (let i = prefix.length ? 1 : 0; i < chords.length; i++) {
+        const v = new Array(DIM).fill(0);
+        harmonyFeatures(v, [chords[i]!], i > 0 ? chords[i - 1]! : null);
+        total += dot(theta, v);
+      }
+      return total / seq.length;
+    };
+  };
   const chain = harmonyChain(style.id);
   const temperature = temperatureFor(settings.creativity);
   const memory = new Map<string, Slot[]>();
@@ -332,6 +389,7 @@ function generateHarmony(
           end,
           temperature,
           prefix: keep,
+          judge: judgeFor(keep),
         });
         slots[slots.length - 2]!.token = tail[0]!;
         slots[slots.length - 1]!.token = tail[1]!;
@@ -342,6 +400,7 @@ function generateHarmony(
         start: baseKind === "A" ? "tonic" : "away",
         end,
         temperature,
+        judge: judgeFor([]),
       });
       slots = layout.map((l, i) => ({ ...l, token: tokens[i]! }));
     }
@@ -1073,13 +1132,15 @@ export function buildSections(bars: number): Section[] {
   return form.map((f, i) => ({ ...f, startBar: i * per, bars: per }));
 }
 
-export function compose(settings: Settings): Piece {
+export function compose(settings: Settings, opts: ComposeOptions = {}): Piece {
+  const take = opts.take ?? 0;
+  const taste = opts.taste;
   const style = getStyle(settings.style);
   const key: Key = { tonic: settings.tonic, scale: settings.scale };
   const sections = buildSections(settings.bars);
 
   // Harmony
-  const harmony = generateHarmony(settings, style, sections);
+  const harmony = generateHarmony(settings, style, sections, take, taste);
   const chords: ChordSlot[] = [];
   harmony.forEach((slots, si) => {
     const offset = sections[si]!.startBar * BEATS_PER_BAR;
@@ -1107,11 +1168,14 @@ export function compose(settings: Settings): Piece {
     drums: [],
     beats: settings.bars * BEATS_PER_BAR,
     beatsPerBar: BEATS_PER_BAR,
+    take,
+    barFeatures: [],
   };
 
   // Melody
-  const melRng = createRng(
-    settings.partSeeds.melody ?? deriveSeed(settings.seed, "melody"),
+  const melRng = createRng(partSeed(settings, "melody", take));
+  const melTasteRng = createRng(
+    deriveSeed(partSeed(settings, "melody", take), "taste"),
   );
   const temperature = temperatureFor(settings.creativity);
   const [low, high] = style.melodyRange;
@@ -1120,7 +1184,8 @@ export function compose(settings: Settings): Piece {
   let lastStep = fromMidi(key, nearestPc(key.tonic, (low + high) / 2));
   const lead: NoteEvent[] = [];
 
-  sections.forEach((section, si) => {
+  const chordAtTime = (t: number) => chordAt(chords, t);
+  const sectionMelody = (section: Section, si: number, startStep: number) => {
     const baseKind =
       section.kind === "A'" ? "A" : section.kind === "B'" ? "B" : section.kind;
     const phraseStart = section.startBar * BEATS_PER_BAR;
@@ -1137,6 +1202,7 @@ export function compose(settings: Settings): Piece {
       center: (low + high) / 2 + shift,
     };
     const ending = slots[slots.length - 1]!.cadence ?? "half";
+    let step = startStep;
 
     // Rhythm: reuse the section's remembered rhythm (motif identity), new cadence bar.
     const remembered = memory.get(baseKind);
@@ -1160,10 +1226,10 @@ export function compose(settings: Settings): Piece {
             sampleRhythmBar(rChain, melRng, section.energy, temperature),
           );
       }
-      memory.set(baseKind, { rhythm });
     }
 
     // Pitches, phrase by phrase (4 bars)
+    const notes: NoteEvent[] = [];
     for (let p = 0; p < section.bars; p += 4) {
       const pStart = phraseStart + p * BEATS_PER_BAR;
       const pSlots = slots.filter(
@@ -1171,7 +1237,7 @@ export function compose(settings: Settings): Piece {
       );
       const isSectionEnd = p + 4 >= section.bars;
       const startTarget = isB
-        ? lastStep + 2
+        ? step + 2
         : fromMidi(key, nearestPc(key.tonic, ctx.center)) +
           melRng.pick([0, 2, 4]);
       const phrase = generatePhraseMelody(
@@ -1184,7 +1250,7 @@ export function compose(settings: Settings): Piece {
         { useSequence: melRng.chance(0.55) },
       );
       for (const n of phrase) {
-        lead.push({
+        notes.push({
           track: "lead",
           time: pStart + n.time,
           dur: n.dur * 0.94,
@@ -1193,21 +1259,68 @@ export function compose(settings: Settings): Piece {
             (n.strong ? 0.82 : 0.68) * (0.85 + section.energy * 0.15) +
             (melRng.next() - 0.5) * 0.08,
         });
-        lastStep = n.step;
+        step = n.step;
       }
     }
+    return { notes, rhythm, step, baseKind, remembered: !!remembered };
+  };
+
+  sections.forEach((section, si) => {
+    // Without a taste model there is one candidate; with one, Thompson sampling
+    // picks the candidate whose bars score highest under a fresh θ draw.
+    const count = taste ? TASTE_CANDIDATES : 1;
+    const theta = taste?.draw(melTasteRng);
+    let best: ReturnType<typeof sectionMelody> | null = null;
+    let bestScore = -Infinity;
+    for (let k = 0; k < count; k++) {
+      const cand = sectionMelody(section, si, lastStep);
+      let score = 0;
+      if (theta) {
+        const prevLead = lead[lead.length - 1] ?? null;
+        for (let b = 0; b < section.bars; b++) {
+          const start = (section.startBar + b) * BEATS_PER_BAR;
+          const inBar = cand.notes.filter(
+            (n) =>
+              n.time >= start - 1e-6 && n.time < start + BEATS_PER_BAR - 1e-6,
+          );
+          const before = cand.notes.filter((n) => n.time < start - 1e-6);
+          const v = new Array(DIM).fill(0);
+          melodyFeatures(
+            v,
+            inBar,
+            before.length ? before[before.length - 1]! : prevLead,
+            chordAtTime,
+            start,
+            BEATS_PER_BAR,
+            style.melodyRange,
+          );
+          score += dot(theta, v, MELODY_DIMS);
+        }
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = cand;
+      }
+    }
+    const chosen = best!;
+    if (!chosen.remembered)
+      memory.set(chosen.baseKind, { rhythm: chosen.rhythm });
+    lead.push(...chosen.notes);
+    lastStep = chosen.step;
   });
 
+  piece.barFeatures = pieceBarFeatures(
+    settings.bars,
+    BEATS_PER_BAR,
+    chords,
+    lead,
+    style.melodyRange,
+  );
+
   // Accompaniment
-  const compRng = createRng(
-    settings.partSeeds.comp ?? deriveSeed(settings.seed, "comp"),
-  );
-  const bassRng = createRng(
-    settings.partSeeds.bass ?? deriveSeed(settings.seed, "bass"),
-  );
-  const drumRng = createRng(
-    settings.partSeeds.drums ?? deriveSeed(settings.seed, "drums"),
-  );
+  const compRng = createRng(partSeed(settings, "comp", take));
+  const bassRng = createRng(partSeed(settings, "bass", take));
+  const drumRng = createRng(partSeed(settings, "drums", take));
   const { keys, pads } = generateComp(piece, compRng, style);
   const bass = generateBass(piece, bassRng, style, 0.3);
   const arp = generateArp(piece, style).filter(
