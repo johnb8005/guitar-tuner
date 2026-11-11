@@ -4,6 +4,7 @@ import { Layout } from "./Layout";
 import { Tuner } from "./Tuner";
 import { Chords } from "./Chords";
 import { Cadence } from "./Cadence";
+import { ComposerPage } from "./composer/ui/ComposerPage";
 
 const basename = process.env.NODE_ENV === "production" ? "/guitar-tuner" : "/";
 
@@ -12,7 +13,8 @@ function App() {
     <BrowserRouter basename={basename}>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<Tuner />} />
+          <Route path="/" element={<ComposerPage />} />
+          <Route path="/tuner" element={<Tuner />} />
           <Route path="/chords" element={<Chords />} />
           <Route path="/cadence" element={<Cadence />} />
         </Route>
