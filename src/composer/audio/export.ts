@@ -10,7 +10,8 @@ export function encodeWav(buffer: AudioBuffer): Blob {
   const length = buffer.length;
   const bytes = 44 + length * channels * 2;
   const view = new DataView(new ArrayBuffer(bytes));
-  const str = (o: number, s: string) => [...s].forEach((c, i) => view.setUint8(o + i, c.charCodeAt(0)));
+  const str = (o: number, s: string) =>
+    [...s].forEach((c, i) => view.setUint8(o + i, c.charCodeAt(0)));
   str(0, "RIFF");
   view.setUint32(4, bytes - 8, true);
   str(8, "WAVE");
@@ -51,7 +52,14 @@ const GM_DRUMS: Record<DrumId, number> = {
   shaker: 70,
 };
 
-const TRACK_NAMES: Record<TrackId, string> = { lead: "Melody", keys: "Keys", pad: "Pad", arp: "Arpeggio", bass: "Bass", drums: "Drums" };
+const TRACK_NAMES: Record<TrackId, string> = {
+  lead: "Melody",
+  keys: "Keys",
+  pad: "Pad",
+  arp: "Arpeggio",
+  bass: "Bass",
+  drums: "Drums",
+};
 
 function vlq(n: number): number[] {
   const out = [n & 0x7f];
@@ -63,7 +71,12 @@ function vlq(n: number): number[] {
   return out;
 }
 
-const u32 = (n: number) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+const u32 = (n: number) => [
+  (n >>> 24) & 255,
+  (n >>> 16) & 255,
+  (n >>> 8) & 255,
+  n & 255,
+];
 const u16 = (n: number) => [(n >>> 8) & 255, n & 255];
 const text = (s: string) => [...s].map((c) => c.charCodeAt(0) & 0x7f);
 
@@ -77,11 +90,24 @@ export function exportMidi(piece: Piece, mix: Mix): Blob {
   const usPerBeat = Math.round(60_000_000 / piece.settings.tempo);
   // Conductor track: tempo, time signature, chord markers
   const conductor: { tick: number; data: number[] }[] = [
-    { tick: 0, data: [0xff, 0x51, 0x03, (usPerBeat >> 16) & 255, (usPerBeat >> 8) & 255, usPerBeat & 255] },
+    {
+      tick: 0,
+      data: [
+        0xff,
+        0x51,
+        0x03,
+        (usPerBeat >> 16) & 255,
+        (usPerBeat >> 8) & 255,
+        usPerBeat & 255,
+      ],
+    },
     { tick: 0, data: [0xff, 0x58, 0x04, 4, 2, 24, 8] },
     ...piece.chords.map((c) => {
       const t = text(c.chord.symbol);
-      return { tick: Math.round(c.time * PPQ), data: [0xff, 0x06, ...vlq(t.length), ...t] };
+      return {
+        tick: Math.round(c.time * PPQ),
+        data: [0xff, 0x06, ...vlq(t.length), ...t],
+      };
     }),
   ];
   tracks.push(encodeTrack(conductor));
@@ -93,13 +119,26 @@ export function exportMidi(piece: Piece, mix: Mix): Blob {
     if (ch === 9 && !isDrums) channel++;
     const evs: { tick: number; data: number[]; order: number }[] = [];
     const name = text(TRACK_NAMES[id]);
-    evs.push({ tick: 0, data: [0xff, 0x03, ...vlq(name.length), ...name], order: 0 });
-    if (!isDrums) evs.push({ tick: 0, data: [0xc0 | ch, getInstrument(mix.tracks[id].instrument).gm], order: 0 });
+    evs.push({
+      tick: 0,
+      data: [0xff, 0x03, ...vlq(name.length), ...name],
+      order: 0,
+    });
+    if (!isDrums)
+      evs.push({
+        tick: 0,
+        data: [0xc0 | ch, getInstrument(mix.tracks[id].instrument).gm],
+        order: 0,
+      });
     if (isDrums) {
       for (const d of piece.drums) {
         const tick = Math.round(d.time * PPQ);
         const note = GM_DRUMS[d.drum];
-        evs.push({ tick, data: [0x99, note, Math.round(d.vel * 127)], order: 2 });
+        evs.push({
+          tick,
+          data: [0x99, note, Math.round(d.vel * 127)],
+          order: 2,
+        });
         evs.push({ tick: tick + 60, data: [0x89, note, 0], order: 1 });
       }
     } else {
@@ -107,7 +146,11 @@ export function exportMidi(piece: Piece, mix: Mix): Blob {
         if (n.track !== id) continue;
         const tick = Math.round(n.time * PPQ);
         const off = Math.max(tick + 1, Math.round((n.time + n.dur) * PPQ));
-        evs.push({ tick, data: [0x90 | ch, n.midi, Math.max(1, Math.round(n.vel * 127))], order: 2 });
+        evs.push({
+          tick,
+          data: [0x90 | ch, n.midi, Math.max(1, Math.round(n.vel * 127))],
+          order: 2,
+        });
         evs.push({ tick: off, data: [0x80 | ch, n.midi, 0], order: 1 });
       }
     }

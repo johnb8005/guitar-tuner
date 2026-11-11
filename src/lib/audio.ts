@@ -1,7 +1,9 @@
 // Shared audio utilities
 
 // Standard tuning open string frequencies (low to high: E A D G B E)
-export const openStringFrequencies = [82.41, 110.0, 146.83, 196.0, 246.94, 329.63];
+export const openStringFrequencies = [
+  82.41, 110.0, 146.83, 196.0, 246.94, 329.63,
+];
 
 // Calculate frequency for a fretted note
 export function getFretFrequency(stringIndex: number, fret: number): number {
@@ -14,7 +16,7 @@ export function getFretFrequency(stringIndex: number, fret: number): number {
 export function createPluckedString(
   ctx: AudioContext,
   frequency: number,
-  duration: number = 2
+  duration: number = 2,
 ): { source: AudioBufferSourceNode; gainNode: GainNode } {
   const sampleRate = ctx.sampleRate;
   const bufferSize = Math.round(sampleRate / frequency);
@@ -37,7 +39,8 @@ export function createPluckedString(
   for (let i = 0; i < outputSamples; i++) {
     output[i] = delayLine[index];
     const nextIndex = (index + 1) % bufferSize;
-    const averaged = smoothing * delayLine[index] + (1 - smoothing) * delayLine[nextIndex];
+    const averaged =
+      smoothing * delayLine[index] + (1 - smoothing) * delayLine[nextIndex];
     delayLine[index] = averaged * damping;
     index = nextIndex;
   }
@@ -76,7 +79,7 @@ export function createPluckedString(
 export function playChord(
   ctx: AudioContext,
   frets: number[],
-  strumDelay: number = 30
+  strumDelay: number = 30,
 ): void {
   const now = ctx.currentTime;
 
@@ -101,7 +104,11 @@ let reverbReturn: GainNode | null = null;
 let convolver: ConvolverNode | null = null;
 
 // Generate impulse response for reverb procedurally (no file loading!)
-function createReverbImpulse(ctx: AudioContext, duration: number = 2.0, decay: number = 2.5): AudioBuffer {
+function createReverbImpulse(
+  ctx: AudioContext,
+  duration: number = 2.0,
+  decay: number = 2.5,
+): AudioBuffer {
   const sampleRate = ctx.sampleRate;
   const length = sampleRate * duration;
   const impulse = ctx.createBuffer(2, length, sampleRate);
@@ -113,7 +120,7 @@ function createReverbImpulse(ctx: AudioContext, duration: number = 2.0, decay: n
     // Exponential decay with some early reflections
     const envelope = Math.exp(-t * decay);
     // Add some diffusion with noise
-    const noise = (Math.random() * 2 - 1);
+    const noise = Math.random() * 2 - 1;
     // Stereo decorrelation - slightly different for each channel
     leftChannel[i] = noise * envelope * (1 + Math.sin(i * 0.01) * 0.1);
     rightChannel[i] = noise * envelope * (1 + Math.cos(i * 0.01) * 0.1);
@@ -150,15 +157,15 @@ export function getAudioContext(): AudioContext {
 
     // 2. Compressor - glues the mix, adds punch
     compressor = audioContext.createDynamicsCompressor();
-    compressor.threshold.value = -18;  // Start compressing at -18dB
-    compressor.knee.value = 8;         // Soft knee for smoother compression
-    compressor.ratio.value = 4;        // 4:1 ratio
-    compressor.attack.value = 0.005;   // Fast attack for transients
-    compressor.release.value = 0.15;   // Medium release
+    compressor.threshold.value = -18; // Start compressing at -18dB
+    compressor.knee.value = 8; // Soft knee for smoother compression
+    compressor.ratio.value = 4; // 4:1 ratio
+    compressor.attack.value = 0.005; // Fast attack for transients
+    compressor.release.value = 0.15; // Medium release
 
     // 3. Reverb send/return (parallel processing)
     reverbSend = audioContext.createGain();
-    reverbSend.gain.value = 0.3;  // 30% wet signal
+    reverbSend.gain.value = 0.3; // 30% wet signal
 
     reverbReturn = audioContext.createGain();
     reverbReturn.gain.value = 0.8;
@@ -219,13 +226,25 @@ export function getMasterOutput(): GainNode {
 
 // Note frequencies for synth instruments (C3 = middle C area)
 export const noteFrequencies: Record<string, number> = {
-  "C": 130.81, "C#": 138.59, "D": 146.83, "D#": 155.56, "E": 164.81,
-  "F": 174.61, "F#": 185.00, "G": 196.00, "G#": 207.65, "A": 220.00,
-  "A#": 233.08, "B": 246.94
+  C: 130.81,
+  "C#": 138.59,
+  D: 146.83,
+  "D#": 155.56,
+  E: 164.81,
+  F: 174.61,
+  "F#": 185.0,
+  G: 196.0,
+  "G#": 207.65,
+  A: 220.0,
+  "A#": 233.08,
+  B: 246.94,
 };
 
 // Get frequency for a note name with octave offset (0 = C3, 1 = C4, etc.)
-export function getNoteFrequency(noteName: string, octaveOffset: number = 0): number {
+export function getNoteFrequency(
+  noteName: string,
+  octaveOffset: number = 0,
+): number {
   const baseFreq = noteFrequencies[noteName] || 130.81;
   return baseFreq * Math.pow(2, octaveOffset);
 }
@@ -262,11 +281,15 @@ export function getChordFrequencies(chordName: string): number[] {
     intervals = [0, 4, 7]; // major
   }
 
-  return intervals.map(i => rootFreq * Math.pow(2, i / 12));
+  return intervals.map((i) => rootFreq * Math.pow(2, i / 12));
 }
 
 // Strings pad sound - lush with chorus and filtering
-export function playStrings(ctx: AudioContext, chordName: string, duration: number = 2.5): void {
+export function playStrings(
+  ctx: AudioContext,
+  chordName: string,
+  duration: number = 2.5,
+): void {
   const frequencies = getChordFrequencies(chordName);
   const now = ctx.currentTime;
 
@@ -317,7 +340,11 @@ export function playStrings(ctx: AudioContext, chordName: string, duration: numb
 }
 
 // Hammond organ sound - with rotary speaker simulation
-export function playHammond(ctx: AudioContext, chordName: string, duration: number = 2.5): void {
+export function playHammond(
+  ctx: AudioContext,
+  chordName: string,
+  duration: number = 2.5,
+): void {
   const frequencies = getChordFrequencies(chordName);
   const now = ctx.currentTime;
 
@@ -328,7 +355,7 @@ export function playHammond(ctx: AudioContext, chordName: string, duration: numb
   // Create shared rotary speaker effect (Leslie simulation)
   const rotarySpeed = 5.5; // Hz - "chorale" speed
 
-  frequencies.forEach(freq => {
+  frequencies.forEach((freq) => {
     // Slight per-note detune for richness
     const noteDetune = (Math.random() - 0.5) * 4;
 
@@ -341,8 +368,8 @@ export function playHammond(ctx: AudioContext, chordName: string, duration: numb
       // Rotary pitch modulation (doppler effect)
       const tremoloLFO = ctx.createOscillator();
       const tremoloGain = ctx.createGain();
-      tremoloLFO.frequency.value = rotarySpeed + (i * 0.1); // Slightly different per harmonic
-      tremoloGain.gain.value = 8 + (harmonic * 2); // Higher harmonics wobble more
+      tremoloLFO.frequency.value = rotarySpeed + i * 0.1; // Slightly different per harmonic
+      tremoloGain.gain.value = 8 + harmonic * 2; // Higher harmonics wobble more
       tremoloLFO.connect(tremoloGain);
       tremoloGain.connect(osc.detune);
       tremoloLFO.start(now);
@@ -372,7 +399,7 @@ export function playHammond(ctx: AudioContext, chordName: string, duration: numb
       const waveshaper = ctx.createWaveShaper();
       const curve = new Float32Array(256);
       for (let j = 0; j < 256; j++) {
-        const x = (j / 128) - 1;
+        const x = j / 128 - 1;
         curve[j] = Math.tanh(x * 1.5); // Soft saturation
       }
       waveshaper.curve = curve;
@@ -388,7 +415,11 @@ export function playHammond(ctx: AudioContext, chordName: string, duration: numb
 }
 
 // Piano sound - realistic with hammer strike, string resonance, and natural decay
-export function playPiano(ctx: AudioContext, chordName: string, duration: number = 2.5): void {
+export function playPiano(
+  ctx: AudioContext,
+  chordName: string,
+  duration: number = 2.5,
+): void {
   const frequencies = getChordFrequencies(chordName);
   const now = ctx.currentTime;
 
@@ -404,14 +435,16 @@ export function playPiano(ctx: AudioContext, chordName: string, duration: number
       osc.type = "sine";
 
       // Inharmonic frequency calculation
-      const harmonicFreq = freq * harmonic * Math.sqrt(1 + inharmonicity * harmonic * harmonic);
+      const harmonicFreq =
+        freq * harmonic * Math.sqrt(1 + inharmonicity * harmonic * harmonic);
       osc.frequency.value = harmonicFreq;
 
       // Per-partial decay - higher harmonics decay faster
       const partialDecay = 2.5 + (1 / harmonic) * 3;
 
       // Amplitude decreases for higher partials (with slight randomness)
-      const baseLevel = (0.09 / Math.pow(harmonic, 0.85)) * (0.9 + Math.random() * 0.2);
+      const baseLevel =
+        (0.09 / Math.pow(harmonic, 0.85)) * (0.9 + Math.random() * 0.2);
 
       const gain = ctx.createGain();
 
@@ -420,7 +453,10 @@ export function playPiano(ctx: AudioContext, chordName: string, duration: number
       gain.gain.linearRampToValueAtTime(baseLevel, noteStart + 0.003); // Very fast attack
       gain.gain.exponentialRampToValueAtTime(baseLevel * 0.6, noteStart + 0.08); // Quick initial decay
       gain.gain.exponentialRampToValueAtTime(baseLevel * 0.15, noteStart + 0.5); // Sustain level
-      gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + Math.min(duration, partialDecay));
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        noteStart + Math.min(duration, partialDecay),
+      );
 
       osc.connect(gain);
       gain.connect(getMasterOutput());
@@ -430,10 +466,15 @@ export function playPiano(ctx: AudioContext, chordName: string, duration: number
     });
 
     // Add "hammer thunk" - brief noise burst for attack transient
-    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+    const noiseBuffer = ctx.createBuffer(
+      1,
+      ctx.sampleRate * 0.05,
+      ctx.sampleRate,
+    );
     const noiseData = noiseBuffer.getChannelData(0);
     for (let i = 0; i < noiseData.length; i++) {
-      noiseData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.008));
+      noiseData[i] =
+        (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.008));
     }
 
     const noiseSource = ctx.createBufferSource();
@@ -464,7 +505,7 @@ export function playMelodyNote(
   frequency: number,
   duration: number,
   startTime: number,
-  volume: number = 0.15
+  volume: number = 0.15,
 ): void {
   // Main oscillator - triangle for warmth
   const osc1 = ctx.createOscillator();
@@ -488,8 +529,14 @@ export function playMelodyNote(
   const vibratoGain = ctx.createGain();
   vibrato.frequency.value = 5.0;
   vibratoGain.gain.setValueAtTime(0, startTime);
-  vibratoGain.gain.linearRampToValueAtTime(0, startTime + Math.min(0.15, duration * 0.3));
-  vibratoGain.gain.linearRampToValueAtTime(6, startTime + Math.min(0.35, duration * 0.5));
+  vibratoGain.gain.linearRampToValueAtTime(
+    0,
+    startTime + Math.min(0.15, duration * 0.3),
+  );
+  vibratoGain.gain.linearRampToValueAtTime(
+    6,
+    startTime + Math.min(0.35, duration * 0.5),
+  );
   vibrato.connect(vibratoGain);
   vibratoGain.connect(osc1.detune);
   vibratoGain.connect(osc3.detune);
@@ -560,7 +607,7 @@ export function playBassNote(
   frequency: number,
   duration: number,
   startTime: number,
-  volume: number = 0.32
+  volume: number = 0.32,
 ): void {
   // Main oscillator - sawtooth for harmonic content
   const osc = ctx.createOscillator();
@@ -590,7 +637,7 @@ export function playBassNote(
   const waveshaper = ctx.createWaveShaper();
   const curve = new Float32Array(256);
   for (let i = 0; i < 256; i++) {
-    const x = (i / 128) - 1;
+    const x = i / 128 - 1;
     curve[i] = Math.tanh(x * 2);
   }
   waveshaper.curve = curve;
@@ -610,7 +657,10 @@ export function playBassNote(
   const subGain = ctx.createGain();
   subGain.gain.setValueAtTime(0, startTime);
   subGain.gain.linearRampToValueAtTime(volume * 0.6, startTime + 0.02);
-  subGain.gain.setValueAtTime(volume * 0.55, startTime + duration - releaseTime);
+  subGain.gain.setValueAtTime(
+    volume * 0.55,
+    startTime + duration - releaseTime,
+  );
   subGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
 
   // Second osc gain

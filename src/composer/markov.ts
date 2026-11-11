@@ -45,7 +45,10 @@ export class MarkovChain {
   }
 
   /** Blended next-token distribution for a history (most recent token last). */
-  distribution(history: string[], opts: { allowEnd?: boolean } = {}): Distribution {
+  distribution(
+    history: string[],
+    opts: { allowEnd?: boolean } = {},
+  ): Distribution {
     const padded = [...Array(this.order).fill(START), ...history];
     const result: Distribution = new Map();
     let totalWeight = 0;
@@ -64,7 +67,8 @@ export class MarkovChain {
         result.set(tok, (result.get(tok) ?? 0) + (w * c) / sum);
       }
     }
-    if (totalWeight > 0) for (const [t, p] of result) result.set(t, p / totalWeight);
+    if (totalWeight > 0)
+      for (const [t, p] of result) result.set(t, p / totalWeight);
     return result;
   }
 
@@ -72,7 +76,11 @@ export class MarkovChain {
   sample(
     history: string[],
     rng: Rng,
-    opts: { temperature?: number; bias?: (token: string, p: number) => number; candidates?: string[] } = {}
+    opts: {
+      temperature?: number;
+      bias?: (token: string, p: number) => number;
+      candidates?: string[];
+    } = {},
   ): string {
     const dist = shape(this.distribution(history), opts);
     if (dist.size === 0) {
@@ -94,7 +102,11 @@ export class MarkovChain {
   matrix(tokens: string[]): number[][] {
     return tokens.map((from) => {
       const row = this.counts[1]!.get(from);
-      const sum = row ? [...row.entries()].filter(([t]) => tokens.includes(t)).reduce((a, [, c]) => a + c, 0) : 0;
+      const sum = row
+        ? [...row.entries()]
+            .filter(([t]) => tokens.includes(t))
+            .reduce((a, [, c]) => a + c, 0)
+        : 0;
       return tokens.map((to) => (row && sum ? (row.get(to) ?? 0) / sum : 0));
     });
   }
@@ -103,7 +115,11 @@ export class MarkovChain {
 /** Apply bias, candidate filtering and temperature to a distribution, renormalised. */
 export function shape(
   dist: Distribution,
-  opts: { temperature?: number; bias?: (token: string, p: number) => number; candidates?: string[] }
+  opts: {
+    temperature?: number;
+    bias?: (token: string, p: number) => number;
+    candidates?: string[];
+  },
 ): Distribution {
   const t = Math.max(0.05, opts.temperature ?? 1);
   const out: Distribution = new Map();
@@ -111,7 +127,8 @@ export function shape(
   // Candidates the chain has never seen still get a small floor so theory can pick them.
   if (opts.candidates) {
     for (const c of opts.candidates) if (!source.has(c)) source.set(c, 0.004);
-    for (const k of [...source.keys()]) if (!opts.candidates.includes(k)) source.delete(k);
+    for (const k of [...source.keys()])
+      if (!opts.candidates.includes(k)) source.delete(k);
   }
   let total = 0;
   for (const [tok, p] of source) {

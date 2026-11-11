@@ -12,7 +12,7 @@ Thanks for your interest in improving Guitar Tuner & Cadence.
 
 - Keep pull requests focused on one change.
 - Put route-level screens in `src/pages/`, reusable UI in `src/components/`, audio code in `src/lib/` and musical data or models in `src/data/`.
-- Make sure `bun run build` succeeds before opening a pull request; CI runs it on every PR.
+- Before opening a pull request, run `bun fmt`, `bun check` and `bun run build`. CI runs all three on every PR.
 - Describe what you changed and how you tested it, ideally with a screenshot or short recording for UI or audio changes.
 
 ## Reporting bugs

@@ -28,14 +28,21 @@ describe("theory", () => {
     const key = { tonic: 0, scale: "ionian" as const };
     const c = voiceLead(buildChord(key, "1", "triad"), null, 52, 76);
     const am = voiceLead(buildChord(key, "6", "triad"), c, 52, 76);
-    const moved = am.reduce((a, n) => a + Math.min(...c.map((p) => Math.abs(p - n))), 0);
+    const moved = am.reduce(
+      (a, n) => a + Math.min(...c.map((p) => Math.abs(p - n))),
+      0,
+    );
     expect(moved).toBeLessThanOrEqual(2);
   });
 });
 
 describe("markov", () => {
   test("learns transitions and backs off", () => {
-    const chain = new MarkovChain(2).trainAll([["a", "b", "c"], ["a", "b", "c"], ["a", "b", "d"]]);
+    const chain = new MarkovChain(2).trainAll([
+      ["a", "b", "c"],
+      ["a", "b", "c"],
+      ["a", "b", "d"],
+    ]);
     const d = chain.distribution(["a", "b"]);
     expect(d.get("c")!).toBeGreaterThan(d.get("d")!);
     expect(chain.distribution(["zzz", "b"]).size).toBeGreaterThan(0);
@@ -73,12 +80,16 @@ describe("compose", () => {
         for (const n of lead) {
           const beat = Math.round(n.time * 4) / 4;
           if (beat % 2 !== 0) continue;
-          const slot = [...a.chords].reverse().find((c) => c.time <= n.time + 1e-3)!;
+          const slot = [...a.chords]
+            .reverse()
+            .find((c) => c.time <= n.time + 1e-3)!;
           strong++;
           if (chordCorePcs(slot.chord).includes(mod(n.midi, 12))) fit++;
         }
         expect(fit / strong).toBeGreaterThan(0.6);
-        expect(a.notes.every((n) => n.time >= 0 && n.time < a.beats + 1)).toBe(true);
+        expect(a.notes.every((n) => n.time >= 0 && n.time < a.beats + 1)).toBe(
+          true,
+        );
       }
     });
   }
@@ -96,6 +107,7 @@ describe("compose", () => {
   });
 
   test("harmony chains are trained", () => {
-    for (const s of STYLES) expect(harmonyChain(s.id).vocabulary.size).toBeGreaterThan(4);
+    for (const s of STYLES)
+      expect(harmonyChain(s.id).vocabulary.size).toBeGreaterThan(4);
   });
 });

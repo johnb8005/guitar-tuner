@@ -13,7 +13,6 @@ A browser music composer that writes and performs complete pieces with Markov ch
 
 Composer code lives in `src/composer/` (`theory.ts`, `markov.ts`, `generate.ts`, `styles.ts`, `audio/`, `ui/`). Run `bun test` for the theory/generation tests.
 
-
 Also included: a guitar tuner with pitch detection, a chord library, and **Cadence**, the original Markov chord progression generator.
 
 [![Deploy to GitHub Pages](https://github.com/johnb8005/guitar-tuner/actions/workflows/deploy.yml/badge.svg)](https://github.com/johnb8005/guitar-tuner/actions/workflows/deploy.yml)
@@ -24,6 +23,7 @@ Also included: a guitar tuner with pitch detection, a chord library, and **Caden
 ## Features
 
 ### Guitar Tuner
+
 - **Realistic string sounds** - Karplus-Strong algorithm for authentic plucked string synthesis
 - **Pitch detection** - Autocorrelation-based tuning with microphone input
 - **Analog-style meter** - Circular gauge showing cents deviation
@@ -31,6 +31,7 @@ Also included: a guitar tuner with pitch detection, a chord library, and **Caden
 - **Multiple tunings:** Standard, Drop D, Open G, Ukulele, Bass, 5-String Bass
 
 ### Cadence - Chord Progression Generator
+
 - **Markov chain progressions** - Genre-specific transition matrices for authentic chord sequences
 - **7 modes** - Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian
 - **5 genres** - Pop, Jazz, Blues, Rock, Classical (each with unique harmonic tendencies)
@@ -43,12 +44,14 @@ Also included: a guitar tuner with pitch detection, a chord library, and **Caden
 
 ## Getting started
 
-You need [Bun](https://bun.sh) 1.2 or newer.
+You need [Bun](https://bun.sh) 1.4.4 or newer.
 
 ```bash
 bun install      # install dependencies
 bun dev          # start the dev server with hot reloading
 bun run build    # build the static site into dist/
+bun check        # type check (replaces tsc)
+bun fmt          # format the code (bun fmt --check to verify only)
 ```
 
 The dev server runs at http://localhost:3000 (set `PORT` to change it). Microphone access for the tuner needs `localhost` or HTTPS.
@@ -73,7 +76,7 @@ build.ts              Production build (static site + 404.html SPA fallback)
 
 ## Deployment
 
-Every push to `main` builds the site and publishes it to GitHub Pages with the workflow in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Pull requests run the build only.
+Every push to `main` builds the site and publishes it to GitHub Pages with the workflow in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Pull requests run `bun check`, `bun fmt --check` and the build, without deploying.
 
 To enable it on a fork, open **Settings → Pages** and set **Source** to **GitHub Actions**. The workflow sets `BASE_PATH` to the repository name, so the site works at `https://<owner>.github.io/<repo>/`.
 

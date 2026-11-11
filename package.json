@@ -5,6 +5,10 @@
   "license": "MIT",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.4.4",
+  "engines": {
+    "bun": ">=1.4.4"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/johnb8005/guitar-tuner.git"
@@ -16,7 +20,10 @@
   "scripts": {
     "dev": "bun --hot src/server.ts",
     "start": "NODE_ENV=production bun src/server.ts",
-    "build": "bun run build.ts"
+    "build": "bun run build.ts",
+    "typecheck": "bun check",
+    "format": "bun fmt",
+    "format:check": "bun fmt --check"
   },
   "dependencies": {
     "@types/three": "^0.182.0",
@@ -28,8 +35,9 @@
     "three": "^0.182.0"
   },
   "devDependencies": {
+    "@types/bun": "latest",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/bun": "latest"
+    "bun": "1.4.4"
   }
 }

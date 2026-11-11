@@ -10,9 +10,23 @@ const BASS_STRINGS = [
 
 // Key to semitone offset from C
 const KEY_OFFSETS: Record<string, number> = {
-  "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3,
-  "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8,
-  "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11,
+  C: 0,
+  "C#": 1,
+  Db: 1,
+  D: 2,
+  "D#": 3,
+  Eb: 3,
+  E: 4,
+  F: 5,
+  "F#": 6,
+  Gb: 6,
+  G: 7,
+  "G#": 8,
+  Ab: 8,
+  A: 9,
+  "A#": 10,
+  Bb: 10,
+  B: 11,
 };
 
 // Mode intervals (semitones from root)
@@ -33,7 +47,7 @@ function scaleDegreeToMidi(
   key: string,
   degree: number,
   mode: Mode,
-  octave: number
+  octave: number,
 ): number {
   const keyOffset = KEY_OFFSETS[key] || 0;
   const intervals = MODE_INTERVALS[mode];
@@ -43,7 +57,7 @@ function scaleDegreeToMidi(
   // For key of E, root should be E2 (open E string or fret 2 on D)
   const baseMidi = 36; // C2 as reference point
   const keyRoot = baseMidi + keyOffset; // Root note of the key
-  return keyRoot + semitone + ((octave + 1) * 12);
+  return keyRoot + semitone + (octave + 1) * 12;
 }
 
 // Find best fret position for a MIDI note on bass
@@ -93,12 +107,13 @@ export function BassTab({
   const bottomPadding = 40;
   const totalBars = bassLine.length;
 
-  const svgWidth = labelWidth + (totalBars * barWidth) + 20;
-  const svgHeight = topPadding + (BASS_STRINGS.length - 1) * stringSpacing + bottomPadding;
+  const svgWidth = labelWidth + totalBars * barWidth + 20;
+  const svgHeight =
+    topPadding + (BASS_STRINGS.length - 1) * stringSpacing + bottomPadding;
 
   // Cursor position
   const cursorX = isPlaying
-    ? labelWidth + (currentBar * barWidth) + (currentBeat * beatWidth)
+    ? labelWidth + currentBar * barWidth + currentBeat * beatWidth
     : -100;
 
   return (
@@ -110,13 +125,15 @@ export function BassTab({
         )}
       </div>
 
-      <svg
-        width={svgWidth}
-        height={svgHeight}
-        className="font-mono"
-      >
+      <svg width={svgWidth} height={svgHeight} className="font-mono">
         {/* Background */}
-        <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="transparent" />
+        <rect
+          x="0"
+          y="0"
+          width={svgWidth}
+          height={svgHeight}
+          fill="transparent"
+        />
 
         {/* String labels */}
         {BASS_STRINGS.map((string, idx) => (
@@ -160,7 +177,7 @@ export function BassTab({
         ))}
 
         {/* Beat markers (vertical dashed lines) */}
-        {bassLine.map((_, barIdx) => (
+        {bassLine.map((_, barIdx) =>
           Array.from({ length: beatsPerBar - 1 }).map((_, beatIdx) => (
             <line
               key={`beat-${barIdx}-${beatIdx}`}
@@ -172,20 +189,26 @@ export function BassTab({
               strokeWidth="1"
               strokeDasharray="2,4"
             />
-          ))
-        ))}
+          )),
+        )}
 
         {/* Notes */}
-        {bassLine.map((bar, barIdx) => (
+        {bassLine.map((bar, barIdx) =>
           bar.map((note, noteIdx) => {
-            const midi = scaleDegreeToMidi(selectedKey, note.scaleDegree, mode, note.octave);
+            const midi = scaleDegreeToMidi(
+              selectedKey,
+              note.scaleDegree,
+              mode,
+              note.octave,
+            );
             const pos = midiToFret(midi);
             if (!pos) return null;
 
             const x = labelWidth + barIdx * barWidth + note.beat * beatWidth;
             const y = topPadding + pos.string * stringSpacing;
 
-            const isCurrentNote = isPlaying &&
+            const isCurrentNote =
+              isPlaying &&
               barIdx === currentBar &&
               currentBeat >= note.beat &&
               currentBeat < note.beat + note.duration;
@@ -230,8 +253,8 @@ export function BassTab({
                 </text>
               </g>
             );
-          })
-        ))}
+          }),
+        )}
 
         {/* Playback cursor */}
         {isPlaying && (
@@ -267,20 +290,31 @@ export function BassTab({
         ))}
 
         {/* Beat numbers */}
-        {bassLine.map((_, barIdx) => (
+        {bassLine.map((_, barIdx) =>
           Array.from({ length: beatsPerBar }).map((_, beatIdx) => (
             <text
               key={`beatnum-${barIdx}-${beatIdx}`}
-              x={labelWidth + barIdx * barWidth + beatIdx * beatWidth + beatWidth / 2}
+              x={
+                labelWidth +
+                barIdx * barWidth +
+                beatIdx * beatWidth +
+                beatWidth / 2
+              }
               y={svgHeight - 22}
-              fill={isPlaying && barIdx === currentBar && Math.floor(currentBeat) === beatIdx ? "#22d3ee" : "#3f3f46"}
+              fill={
+                isPlaying &&
+                barIdx === currentBar &&
+                Math.floor(currentBeat) === beatIdx
+                  ? "#22d3ee"
+                  : "#3f3f46"
+              }
               fontSize="9"
               textAnchor="middle"
             >
               {beatIdx + 1}
             </text>
-          ))
-        ))}
+          )),
+        )}
       </svg>
     </div>
   );

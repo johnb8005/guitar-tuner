@@ -1,5 +1,11 @@
 import { useState, useCallback } from "react";
-import { chords, baseNotes, categories, categoryOrder, type Chord } from "../data/chordData";
+import {
+  chords,
+  baseNotes,
+  categories,
+  categoryOrder,
+  type Chord,
+} from "../data/chordData";
 import { getAudioContext, playChord } from "../lib/audio";
 
 function ChordDiagram({ chord }: { chord: Chord }) {
@@ -19,9 +25,22 @@ function ChordDiagram({ chord }: { chord: Chord }) {
       <svg width={width} height={height} className="mx-auto">
         {/* Nut or fret indicator */}
         {!showBaseFret ? (
-          <rect x={stringSpacing - 2} y={topPadding - 3} width={stringSpacing * stringCount + 4} height={4} fill="white" rx={2} />
+          <rect
+            x={stringSpacing - 2}
+            y={topPadding - 3}
+            width={stringSpacing * stringCount + 4}
+            height={4}
+            fill="white"
+            rx={2}
+          />
         ) : (
-          <text x={8} y={topPadding + fretSpacing / 2} fill="#a1a1aa" fontSize="10" textAnchor="middle">
+          <text
+            x={8}
+            y={topPadding + fretSpacing / 2}
+            fill="#a1a1aa"
+            fontSize="10"
+            textAnchor="middle"
+          >
             {chord.baseFret}fr
           </text>
         )}
@@ -54,9 +73,13 @@ function ChordDiagram({ chord }: { chord: Chord }) {
 
         {/* Barres */}
         {chord.barres.map((barreFret) => {
-          const barreY = topPadding + (barreFret - chord.baseFret + 0.5) * fretSpacing;
+          const barreY =
+            topPadding + (barreFret - chord.baseFret + 0.5) * fretSpacing;
           const startString = chord.frets.findIndex((f) => f === barreFret);
-          const endString = chord.frets.length - 1 - [...chord.frets].reverse().findIndex((f) => f === barreFret);
+          const endString =
+            chord.frets.length -
+            1 -
+            [...chord.frets].reverse().findIndex((f) => f === barreFret);
           return (
             <rect
               key={`barre-${barreFret}`}
@@ -77,7 +100,15 @@ function ChordDiagram({ chord }: { chord: Chord }) {
           if (fret === -1) {
             // Muted string
             return (
-              <text key={stringIndex} x={x} y={topPadding - 10} fill="#ef4444" fontSize="12" textAnchor="middle" fontWeight="bold">
+              <text
+                key={stringIndex}
+                x={x}
+                y={topPadding - 10}
+                fill="#ef4444"
+                fontSize="12"
+                textAnchor="middle"
+                fontWeight="bold"
+              >
                 ×
               </text>
             );
@@ -86,7 +117,15 @@ function ChordDiagram({ chord }: { chord: Chord }) {
           if (fret === 0) {
             // Open string
             return (
-              <circle key={stringIndex} cx={x} cy={topPadding - 10} r={4} fill="none" stroke="#4ade80" strokeWidth={2} />
+              <circle
+                key={stringIndex}
+                cx={x}
+                cy={topPadding - 10}
+                r={4}
+                fill="none"
+                stroke="#4ade80"
+                strokeWidth={2}
+              />
             );
           }
 
@@ -99,7 +138,13 @@ function ChordDiagram({ chord }: { chord: Chord }) {
           }
 
           return (
-            <circle key={stringIndex} cx={x} cy={y} r={6} fill={isBarre ? "#f59e0b" : "#f59e0b"} />
+            <circle
+              key={stringIndex}
+              cx={x}
+              cy={y}
+              r={6}
+              fill={isBarre ? "#f59e0b" : "#f59e0b"}
+            />
           );
         })}
       </svg>
@@ -121,7 +166,8 @@ export function Chords() {
   }, []);
 
   const filteredChords = chords.filter((chord) => {
-    if (categoryFilter !== "all" && chord.category !== categoryFilter) return false;
+    if (categoryFilter !== "all" && chord.category !== categoryFilter)
+      return false;
     if (noteFilter && chord.baseNote !== noteFilter) return false;
     if (openChordsOnly && chord.barres.length > 0) return false;
     return true;
@@ -129,9 +175,12 @@ export function Chords() {
 
   // Sort: by base note first, then by category order
   const sortedChords = [...filteredChords].sort((a, b) => {
-    const noteCompare = baseNotes.indexOf(a.baseNote) - baseNotes.indexOf(b.baseNote);
+    const noteCompare =
+      baseNotes.indexOf(a.baseNote) - baseNotes.indexOf(b.baseNote);
     if (noteCompare !== 0) return noteCompare;
-    return categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category);
+    return (
+      categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category)
+    );
   });
 
   return (
@@ -154,13 +203,18 @@ export function Chords() {
             <button
               onClick={() => setOpenChordsOnly(!openChordsOnly)}
               className={`px-6 py-2 rounded-xl font-medium text-sm transition-all duration-300 flex items-center gap-2
-                ${openChordsOnly
-                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg"
-                  : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                ${
+                  openChordsOnly
+                    ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg"
+                    : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
                 }`}
             >
-              <span className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${openChordsOnly ? "border-white bg-white/20" : "border-zinc-500"}`}>
-                {openChordsOnly && <span className="text-white text-xs">✓</span>}
+              <span
+                className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${openChordsOnly ? "border-white bg-white/20" : "border-zinc-500"}`}
+              >
+                {openChordsOnly && (
+                  <span className="text-white text-xs">✓</span>
+                )}
               </span>
               Open Chords Only
             </button>
@@ -173,9 +227,10 @@ export function Chords() {
                 key={cat.id}
                 onClick={() => setCategoryFilter(cat.id)}
                 className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-300
-                  ${categoryFilter === cat.id
-                    ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-lg"
-                    : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                  ${
+                    categoryFilter === cat.id
+                      ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-lg"
+                      : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
                   }`}
               >
                 {cat.label}
@@ -188,9 +243,10 @@ export function Chords() {
             <button
               onClick={() => setNoteFilter(null)}
               className={`w-10 h-10 rounded-xl font-bold text-sm transition-all duration-300
-                ${noteFilter === null
-                  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg"
-                  : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                ${
+                  noteFilter === null
+                    ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg"
+                    : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
                 }`}
             >
               All
@@ -200,9 +256,10 @@ export function Chords() {
                 key={note}
                 onClick={() => setNoteFilter(note)}
                 className={`w-10 h-10 rounded-xl font-bold text-sm transition-all duration-300
-                  ${noteFilter === note
-                    ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg"
-                    : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
+                  ${
+                    noteFilter === note
+                      ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg"
+                      : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-700/50 hover:text-white"
                   }`}
               >
                 {note}
@@ -220,13 +277,16 @@ export function Chords() {
                 key={chord.name}
                 onClick={() => handlePlayChord(chord)}
                 className={`backdrop-blur-xl bg-white/5 rounded-2xl border p-4 transition-all duration-300 cursor-pointer
-                  ${isPlaying
-                    ? "bg-amber-500/20 border-amber-500/50 scale-105 shadow-lg shadow-amber-500/20"
-                    : "border-white/10 hover:bg-white/10 hover:scale-105"
+                  ${
+                    isPlaying
+                      ? "bg-amber-500/20 border-amber-500/50 scale-105 shadow-lg shadow-amber-500/20"
+                      : "border-white/10 hover:bg-white/10 hover:scale-105"
                   }`}
               >
                 <div className="text-center mb-2">
-                  <h3 className={`text-2xl font-black transition-colors ${isPlaying ? "text-amber-400" : "text-white"}`}>
+                  <h3
+                    className={`text-2xl font-black transition-colors ${isPlaying ? "text-amber-400" : "text-white"}`}
+                  >
                     {chord.name}
                   </h3>
                   <p className="text-xs text-zinc-500">{chord.fullName}</p>
@@ -240,7 +300,9 @@ export function Chords() {
         {/* Empty State */}
         {sortedChords.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-zinc-500">No chords found with current filters</p>
+            <p className="text-zinc-500">
+              No chords found with current filters
+            </p>
             <button
               onClick={() => setOpenChordsOnly(false)}
               className="mt-4 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
