@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { Tuner } from "./pages/Tuner";
 import { Chords } from "./pages/Chords";
 import { Cadence } from "./pages/Cadence";
+import { ComposerPage } from "./composer/ui/ComposerPage";
 
 // Injected by build.ts so the app works when hosted under a sub-path such as
 // https://<user>.github.io/guitar-tuner/. Undefined in the dev server.
@@ -15,7 +16,8 @@ function App() {
     <BrowserRouter basename={basename}>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<Tuner />} />
+          <Route path="/" element={<ComposerPage />} />
+          <Route path="/tuner" element={<Tuner />} />
           <Route path="/chords" element={<Chords />} />
           <Route path="/cadence" element={<Cadence />} />
         </Route>
