@@ -25,6 +25,8 @@ import {
 import { PianoRoll } from "./PianoRoll";
 import { FeedbackButtons, TastePanel, useTaste } from "./TastePanel";
 import { mixForStyle, readHash, settingsForStyle, writeHash } from "./state";
+import { ChatPanel } from "./ChatPanel";
+import { describeState, type Command } from "../assistant";
 
 let sharedEngine: Engine | null = null;
 
@@ -262,6 +264,93 @@ export function ComposerPage() {
     () => piece.barFeatures.map((phi) => taste.model.predict(phi)),
     [piece, taste.model, taste.version], // eslint-disable-line react-hooks/exhaustive-deps
   );
+
+  // Talk to the composer: apply a command from the chat box.
+  const current = useRef({ settings, mix, playing });
+  current.current = { settings, mix, playing };
+  const applyCommand = (cmd: Command): string => {
+    const { set } = cmd;
+    const changes: string[] = [];
+    if (set.style && set.style !== settings.style) {
+      changeStyle(set.style);
+      changes.push(`style ${set.style}`);
+    }
+    const patch: Partial<Settings> = {};
+    if (set.key) {
+      const i = KEY_NAMES.indexOf(set.key as (typeof KEY_NAMES)[number]);
+      if (i >= 0) patch.tonic = i;
+    }
+    if (set.scale) patch.scale = set.scale;
+    if (set.tempo) patch.tempo = set.tempo;
+    if (set.bars) patch.bars = set.bars;
+    if (set.extension) patch.extension = set.extension;
+    if (set.creativity !== undefined) patch.creativity = set.creativity / 100;
+    if (set.swing !== undefined) patch.swing = set.swing / 100;
+    if (set.key) changes.push(`key ${set.key}`);
+    if (set.scale) changes.push(`scale ${set.scale}`);
+    if (set.tempo) changes.push(`${set.tempo} bpm`);
+    if (set.bars) changes.push(`${set.bars} bars`);
+    if (set.extension) changes.push(set.extension);
+    if (set.creativity !== undefined)
+      changes.push(`creativity ${set.creativity}%`);
+    if (set.swing !== undefined) changes.push(`swing ${set.swing}%`);
+    // Applied after changeStyle, so explicit values win over style defaults.
+    if (Object.keys(patch).length)
+      setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
+    if (
+      set.reverb !== undefined ||
+      set.echo !== undefined ||
+      set.vinyl !== undefined
+    ) {
+      setMix((m) => ({
+        ...m,
+        reverb: set.reverb !== undefined ? set.reverb / 100 : m.reverb,
+        delay: set.echo !== undefined ? set.echo / 100 : m.delay,
+        vinyl: set.vinyl ?? m.vinyl,
+      }));
+      if (set.reverb !== undefined) changes.push(`reverb ${set.reverb}%`);
+      if (set.echo !== undefined) changes.push(`echo ${set.echo}%`);
+      if (set.vinyl !== undefined)
+        changes.push(`vinyl ${set.vinyl ? "on" : "off"}`);
+    }
+    for (const a of cmd.actions) {
+      switch (a.do) {
+        case "play":
+          if (!engine.playing) play();
+          break;
+        case "stop":
+          engine.stop();
+          break;
+        case "compose":
+          generate();
+          break;
+        case "newProgression":
+          rerollHarmony();
+          break;
+        case "like":
+        case "dislike":
+          if (!engine.playing) {
+            changes.push("(press play first to rate a bar)");
+            continue;
+          }
+          rate(a.do === "like" ? 1 : -1);
+          break;
+        case "reroll":
+          reroll(a.track!);
+          break;
+        case "mute":
+        case "unmute":
+          updateTrack(a.track!, { mute: a.do === "mute" });
+          break;
+        case "solo":
+        case "unsolo":
+          updateTrack(a.track!, { solo: a.do === "solo" });
+          break;
+      }
+      changes.push(a.track ? `${a.do} ${a.track}` : a.do);
+    }
+    return changes.join(" · ");
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -672,6 +761,26 @@ export function ComposerPage() {
               onSeek={(beat) => play(beat)}
               barScores={learning ? barScores : undefined}
               marks={marks}
+            />
+          </Panel>
+
+          <Panel
+            title="Talk to the composer"
+            action={
+              <span className="text-[11px] text-zinc-500">
+                Chrome built-in AI · on-device
+              </span>
+            }
+          >
+            <ChatPanel
+              getState={() => {
+                const c = current.current;
+                return {
+                  ...c,
+                  text: describeState(c.settings, c.mix, c.playing),
+                };
+              }}
+              apply={applyCommand}
             />
           </Panel>
 
