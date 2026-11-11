@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import "./index.css";
+import "../index.css";
 
 const LINKS = [
   { to: "/", label: "Composer", end: true },

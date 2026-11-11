@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import * as THREE from "three";
-import { getAnalyser } from "./audio";
+import { getAnalyser } from "../lib/audio";
 
 type VisualizerProps = {
   isPlaying: boolean;

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import "./index.css";
+import "../index.css";
 
 type StringNote = {
   note: string;

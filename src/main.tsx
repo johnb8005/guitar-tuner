@@ -1,12 +1,15 @@
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Layout } from "./Layout";
-import { Tuner } from "./Tuner";
-import { Chords } from "./Chords";
-import { Cadence } from "./Cadence";
+import { Layout } from "./components/Layout";
+import { Tuner } from "./pages/Tuner";
+import { Chords } from "./pages/Chords";
+import { Cadence } from "./pages/Cadence";
 import { ComposerPage } from "./composer/ui/ComposerPage";
 
-const basename = process.env.NODE_ENV === "production" ? "/guitar-tuner" : "/";
+// Injected by build.ts so the app works when hosted under a sub-path such as
+// https://<user>.github.io/guitar-tuner/. Undefined in the dev server.
+declare const __BASE_PATH__: string | undefined;
+const basename = typeof __BASE_PATH__ !== "undefined" ? __BASE_PATH__ : "/";
 
 function App() {
   return (
