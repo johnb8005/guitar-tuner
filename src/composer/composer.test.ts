@@ -74,7 +74,8 @@ describe("compose", () => {
           expect(n.midi).toBeGreaterThanOrEqual(style.melodyRange[0] - 3);
           expect(n.midi).toBeLessThanOrEqual(style.melodyRange[1] + 5);
         }
-        // Strong-beat melody notes mostly land on chord tones
+        // Strong-beat melody notes mostly land on chord tones or their 9ths
+        // (the rest are appoggiaturas that resolve by step)
         let strong = 0;
         let fit = 0;
         for (const n of lead) {
@@ -84,7 +85,12 @@ describe("compose", () => {
             .reverse()
             .find((c) => c.time <= n.time + 1e-3)!;
           strong++;
-          if (chordCorePcs(slot.chord).includes(mod(n.midi, 12))) fit++;
+          const pc = mod(n.midi, 12);
+          if (
+            chordCorePcs(slot.chord).includes(pc) ||
+            mod(pc - slot.chord.root, 12) === 2
+          )
+            fit++;
         }
         expect(fit / strong).toBeGreaterThan(0.6);
         expect(a.notes.every((n) => n.time >= 0 && n.time < a.beats + 1)).toBe(

@@ -451,7 +451,9 @@ function sampleRhythmBar(
       bias: (t, p) => {
         const notes = RHYTHM_CELLS[t]?.length ?? 0;
         let w = p * (1 + (energy - 0.5) * notes * 0.35);
-        if (i === 0 && (t === "-" || t === "r")) w *= 0.15; // start bars with a note
+        // Mostly start bars with a note, but allow a breath or a tie over the bar.
+        if (i === 0 && t === "r") w *= 0.35;
+        if (i === 0 && t === "-") w *= 0.25;
         return Math.max(w, 0.0001);
       },
     });
@@ -505,6 +507,35 @@ function isChordTone(chord: Chord, midi: number, core = true) {
   return (core ? chordCorePcs(chord) : chordPcs(chord)).includes(mod(midi, 12));
 }
 
+/**
+ * How good a note sounds on a strong beat. Thirds, sevenths and ninths colour
+ * the harmony; landing on the root every downbeat is what makes a line sound
+ * square and nursery-like. Dissonances a step above a chord tone are allowed
+ * as appoggiaturas (they then resolve down); other clashes are avoided.
+ */
+function strongBeatWeight(
+  chord: Chord,
+  midi: number,
+  chordTone: boolean,
+  color: boolean,
+): number {
+  const rel = mod(midi - chord.root, 12);
+  const ints = chord.intervals.map((i) => mod(i, 12));
+  const majorThird = ints.includes(4);
+  if (chordTone) {
+    if (rel === 0) return 1.3;
+    if (rel === 3 || rel === 4) return 3.2;
+    if (rel === 10 || rel === 11 || rel === 9) return 3;
+    return 1.9; // fifth
+  }
+  if (color) return 2.4;
+  if (rel === 2) return 2.2; // add9
+  if (rel === 9 && majorThird) return 1.3; // add6
+  if (rel === 5 && !majorThird) return 1.6; // minor 11th
+  if (rel === 1 || rel === 6 || (rel === 5 && majorThird)) return 0.12;
+  return 0.35; // appoggiatura candidate
+}
+
 function scoreStep(
   ctx: MelodyCtx,
   chord: Chord,
@@ -513,6 +544,7 @@ function scoreStep(
   prevInterval: number | null,
   repeatCount: number,
   candStep: number,
+  prevDissonant = false,
 ): number {
   const { key, low, high, center } = ctx;
   const midi = toMidi(key, candStep);
@@ -523,8 +555,17 @@ function scoreStep(
   w *= Math.exp(-Math.pow((midi - center) / spread, 2) * 0.8);
   const chordTone = isChordTone(chord, midi);
   const color = !chordTone && isChordTone(chord, midi, false);
-  if (strong) w *= chordTone ? 4 : color ? 1.2 : 0.18;
-  else w *= chordTone ? 1.4 : 1;
+  if (strong) w *= strongBeatWeight(chord, midi, chordTone, color);
+  else w *= chordTone ? 1.3 : 1;
+  // An appoggiatura (dissonance on the beat) resolves down by step.
+  if (prevDissonant) w *= iv === -1 ? 4 : iv === 1 ? 1.5 : 0.3;
+  // Damp do-re-mi scale runs: a third step in the same direction.
+  if (
+    prevInterval !== null &&
+    Math.abs(prevInterval) === 1 &&
+    iv === prevInterval
+  )
+    w *= 0.55;
   // Gap-fill: after a leap, step back the other way.
   if (prevInterval !== null && Math.abs(prevInterval) >= 3) {
     if (
@@ -556,7 +597,7 @@ function generatePhraseMelody(
   phraseStart: number,
   startStep: number,
   ending: "half" | "authentic",
-  motif: { useSequence: boolean },
+  motif: { useSequence: boolean; final: boolean },
 ): { time: number; dur: number; step: number; strong: boolean }[] {
   const { key, rng, chain, temperature } = ctx;
   const chordTimes = new Set(slots.map((s) => s.time - phraseStart));
@@ -567,6 +608,7 @@ function generatePhraseMelody(
   const intervals: number[] = [];
   let step = startStep;
   let repeat = 0;
+  let dissonant = false;
 
   onsets.forEach((o, i) => {
     const chord = chordAt(slots, phraseStart + o.time);
@@ -596,7 +638,20 @@ function generatePhraseMelody(
           const midi = toMidi(key, s);
           let w = Math.exp(-Math.abs(s - step) * 0.7);
           if (midi < ctx.low || midi > ctx.high) w *= 0.02;
-          if (ending === "authentic") w *= deg === 0 ? 1000 : 0.01;
+          // The piece ends on the tonic; inner sections may rest on the 3rd
+          // or 5th, which feels less like a nursery-rhyme full stop.
+          if (ending === "authentic")
+            w *= motif.final
+              ? deg === 0
+                ? 1000
+                : 0.01
+              : deg === 0
+                ? 5
+                : deg === 2
+                  ? 3.5
+                  : deg === 4
+                    ? 1.5
+                    : 0.01;
           else
             w *= isChordTone(chord, midi)
               ? deg === 1 || deg === 4
@@ -636,7 +691,16 @@ function generatePhraseMelody(
           const d = Number(tok);
           let w =
             (p + 0.003) *
-            scoreStep(ctx, chord, o.strong, step, prevIv, repeat, step + d);
+            scoreStep(
+              ctx,
+              chord,
+              o.strong,
+              step,
+              prevIv,
+              repeat,
+              step + d,
+              dissonant,
+            );
           if (nearEnd && Math.abs(d) > 2) w *= 0.4; // approach the cadence smoothly
           return w;
         },
@@ -649,10 +713,51 @@ function generatePhraseMelody(
     while (toMidi(key, next) < ctx.low && !isLast) next += 7;
     if (i > 0) intervals.push(next - step);
     repeat = next === step ? repeat + 1 : 0;
+    dissonant = o.strong && !isChordTone(chord, toMidi(key, next), false);
     step = next;
     notes.push({ time: o.time, dur: o.dur, step, strong: o.strong });
   });
   return notes;
+}
+
+// ---------------- Phrasing ----------------
+
+/** Metric weight of an onset: downbeats lean in, offbeats and 16ths are lighter. */
+function metricAccent(time: number): number {
+  const sub = mod(time, 1);
+  const beat = mod(Math.floor(time + 1e-6), BEATS_PER_BAR);
+  if (sub < 0.02 || sub > 0.98)
+    return beat === 0 ? 1 : beat === 2 ? 0.95 : 0.91;
+  if (Math.abs(sub - 0.5) < 0.02) return 0.86;
+  return 0.8;
+}
+
+/**
+ * Loudness of a melody note, the way a player would shape it: a swell towards
+ * the middle of the 4-bar phrase and a taper at its end, higher notes a little
+ * louder, metric accents, and syncopations (offbeat notes held over the beat)
+ * pushed rather than swallowed.
+ */
+function leadDynamics(
+  time: number,
+  dur: number,
+  midi: number,
+  ctx: { low: number; high: number; center: number },
+): number {
+  const pos = Math.min(1, time / (4 * BEATS_PER_BAR));
+  const arc = 0.84 + 0.2 * Math.sin(Math.PI * Math.pow(pos, 0.8));
+  const height = 1 + ((midi - ctx.center) / (ctx.high - ctx.low)) * 0.18;
+  const offbeat = mod(time, 1) > 0.02;
+  const syncopated = offbeat && dur >= 0.74;
+  const accent = syncopated ? 0.98 : metricAccent(time);
+  return 0.8 * arc * height * accent;
+}
+
+/** Note length as played: legato lines connect, detached notes breathe. */
+function articulate(dur: number, legato: boolean, rng: Rng): number {
+  if (dur >= 1.5) return dur - 0.08 - rng.next() * 0.06;
+  if (legato) return dur * (0.92 + rng.next() * 0.1);
+  return dur * (0.72 + rng.next() * 0.16);
 }
 
 // ---------------- Accompaniment ----------------
@@ -1239,7 +1344,7 @@ export function compose(settings: Settings, opts: ComposeOptions = {}): Piece {
       const startTarget = isB
         ? step + 2
         : fromMidi(key, nearestPc(key.tonic, ctx.center)) +
-          melRng.pick([0, 2, 4]);
+          melRng.pick([2, 4, 4, 1, 6, -3]);
       const phrase = generatePhraseMelody(
         ctx,
         pSlots.length ? pSlots : slots,
@@ -1247,20 +1352,30 @@ export function compose(settings: Settings, opts: ComposeOptions = {}): Piece {
         pStart,
         startTarget,
         isSectionEnd ? ending : "half",
-        { useSequence: melRng.chance(0.55) },
+        // Literal sequences (the same figure a step higher) quickly sound
+        // like a jingle, so they are the exception.
+        {
+          useSequence: melRng.chance(0.18),
+          final: isSectionEnd && si === sections.length - 1,
+        },
       );
-      for (const n of phrase) {
+      phrase.forEach((n, j) => {
+        const midi = toMidi(key, n.step);
+        const next = phrase[j + 1];
+        const legato =
+          next !== undefined && next.time - (n.time + n.dur) < 0.01;
         notes.push({
           track: "lead",
           time: pStart + n.time,
-          dur: n.dur * 0.94,
-          midi: toMidi(key, n.step),
+          dur: articulate(n.dur, legato, melRng),
+          midi,
           vel:
-            (n.strong ? 0.82 : 0.68) * (0.85 + section.energy * 0.15) +
-            (melRng.next() - 0.5) * 0.08,
+            leadDynamics(n.time, n.dur, midi, ctx) *
+              (0.82 + section.energy * 0.18) +
+            (melRng.next() - 0.5) * 0.07,
         });
         step = n.step;
-      }
+      });
     }
     return { notes, rhythm, step, baseKind, remembered: !!remembered };
   };
@@ -1331,25 +1446,66 @@ export function compose(settings: Settings, opts: ComposeOptions = {}): Piece {
   );
   const drums = generateDrums(piece, drumRng, style);
 
-  // Swing + humanise
+  // Swing + humanise. Times are in beats: 0.02 beats is about 10 ms at 110 bpm.
   const humanRng = createRng(deriveSeed(settings.seed, "human"));
-  const loose = style.id === "lofi" || style.id === "jazz" ? 0.012 : 0.004;
+  const loose = style.id === "lofi" || style.id === "jazz" ? 0.035 : 0.018;
   const sw = (t: number) => swingTime(t, settings.swing, style.swingUnit);
-  const human = (t: number) => Math.max(0, t + (humanRng.next() - 0.5) * loose);
+  const human = (t: number, amount = 1) =>
+    Math.max(0, t + (humanRng.next() - 0.5) * loose * amount);
+  // A melody sits slightly behind the beat; bass and kick anchor it.
+  const feel: Record<NoteEvent["track"], { lag: number; jitter: number }> = {
+    lead: { lag: 0.012, jitter: 1.2 },
+    keys: { lag: 0.004, jitter: 0.8 },
+    arp: { lag: 0, jitter: 0.5 },
+    bass: { lag: 0, jitter: 0.5 },
+    pad: { lag: 0, jitter: 0 },
+  };
+  // Chords on keys are rolled a little, low to high, like fingers landing.
+  const roll = new Map<string, number>();
+  const chordNotes = new Map<number, number[]>();
+  for (const n of keys) {
+    const k = Math.round(n.time * 96);
+    const list = chordNotes.get(k) ?? [];
+    list.push(n.midi);
+    chordNotes.set(k, list);
+  }
+  for (const [k, list] of chordNotes) {
+    const per = 0.006 + humanRng.next() * 0.01;
+    [...list]
+      .sort((a, b) => a - b)
+      .forEach((m, i) => roll.set(`${k}:${m}`, i * per));
+  }
   piece.notes = [...lead, ...keys, ...padFiltered, ...arp, ...bass]
     .map((n) => {
       const start = sw(n.time);
       const end = sw(n.time + n.dur);
+      const f = feel[n.track];
+      const rolled =
+        n.track === "keys"
+          ? (roll.get(`${Math.round(n.time * 96)}:${n.midi}`) ?? 0)
+          : 0;
+      const accent =
+        n.track === "lead" || n.track === "pad"
+          ? 1
+          : metricAccent(n.time) * (0.97 + humanRng.next() * 0.06);
       return {
         ...n,
-        time: n.track === "pad" ? start : human(start),
+        time:
+          n.track === "pad" ? start : human(start + f.lag, f.jitter) + rolled,
         dur: Math.max(0.05, end - start),
-        vel: clamp01(n.vel),
+        vel: clamp01(n.vel * accent),
       };
     })
     .sort((a, b) => a.time - b.time);
   piece.drums = drums
-    .map((d) => ({ ...d, time: human(sw(d.time)), vel: clamp01(d.vel) }))
+    .map((d) => ({
+      ...d,
+      time: human(
+        sw(d.time),
+        d.drum === "kick" || d.drum === "snare" ? 0.4 : 0.8,
+      ),
+      vel: clamp01(d.vel),
+    }))
     .sort((a, b) => a.time - b.time);
   return piece;
 }

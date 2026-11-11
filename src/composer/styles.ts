@@ -85,17 +85,22 @@ export const RHYTHM_CELLS: Record<string, [number, number][]> = {
   r: [], // rest
 };
 
+// Bars of four beat-cells. Mostly syncopated or breathing patterns: offbeat
+// entries ("re"), notes tied over the beat ("-"), and rests, so lines don't
+// march on every beat.
 const BASE_RHYTHMS = [
-  "q q q q",
+  "q re - q",
+  "r re ee q",
+  "ee re - q",
+  "q - re ee",
+  "re ee re -",
+  "q ee re -",
+  "r ee q -",
+  "q q re ee",
+  "e.s re - q",
+  "ee q - r",
   "q - ee q",
-  "ee ee q q",
-  "q ee q -",
   "re ee q q",
-  "q q ee ee",
-  "e.s ee q q",
-  "q - q q",
-  "ee q ee q",
-  "q ee ee q",
 ];
 
 export const STYLES: StyleDef[] = [
@@ -136,7 +141,7 @@ export const STYLES: StyleDef[] = [
       "re q ee q",
       "e.s e.s q q",
     ],
-    cadenceRhythms: ["q - - r", "ee q - r", "q q - r", "re ee q -"],
+    cadenceRhythms: ["ee re - -", "re ee q -", "q re - r", "r ee q -"],
     melodyRange: [62, 81],
     leadOctave: 72,
     bass: "pop8",
@@ -144,7 +149,7 @@ export const STYLES: StyleDef[] = [
     arp: "cascade",
     drums: "pop",
     instruments: {
-      lead: "bell-lead",
+      lead: "nylon-guitar",
       keys: "grand-piano",
       pad: "warm-pad",
       arp: "pluck",
@@ -396,60 +401,42 @@ export function getStyle(id: StyleId): StyleDef {
   return STYLES.find((s) => s.id === id) ?? STYLES[0]!;
 }
 
-// Public-domain folk melodies written as 0-based scale degrees. The melody chain
-// learns its interval statistics from these (contour, step/leap balance, gap-fill).
+// Melodic idioms written as 0-based scale degrees (original fragments plus two
+// modal folk tunes). The melody chain learns its interval statistics from these.
+// Deliberately no nursery tunes or scale-run exercises: those taught the chain
+// the do-re-mi stepping that made melodies sound kitsch. The fragments lean on
+// repeated-note hooks, falling thirds, sighs, fourths and gap-filled leaps.
 export const MELODY_CORPUS: number[][] = [
-  // Ode to Joy
-  [
-    2, 2, 3, 4, 4, 3, 2, 1, 0, 0, 1, 2, 2, 1, 1, 2, 2, 3, 4, 4, 3, 2, 1, 0, 0,
-    1, 2, 1, 0, 0,
-  ],
-  // Twinkle Twinkle
-  [
-    0, 0, 4, 4, 5, 5, 4, 3, 3, 2, 2, 1, 1, 0, 4, 4, 3, 3, 2, 2, 1, 4, 4, 3, 3,
-    2, 2, 1,
-  ],
-  // Frère Jacques
-  [
-    0, 1, 2, 0, 0, 1, 2, 0, 2, 3, 4, 2, 3, 4, 4, 5, 4, 3, 2, 0, 4, 5, 4, 3, 2,
-    0, 0, -3, 0, 0, -3, 0,
-  ],
-  // Amazing Grace
-  [
-    -3, 0, 2, 0, 2, 1, 0, -2, -3, -3, 0, 2, 0, 2, 1, 4, 2, 4, 2, 4, 2, 0, -3,
-    -2, 0, 0, -2, -3, -3, 0, 2, 0, 2, 1, 0,
-  ],
+  // Repeated-note hooks that fall away
+  [4, 4, 4, 5, 4, 2, 2, 2, 2, 3, 2, 0],
+  [2, 2, 2, 1, 2, 4, 2, 1, 1, 1, 0, 1, -1],
+  [0, 0, 0, -1, 0, 2, 1, 1, 1, 1, 0, 1, 4, 2],
+  // Sighs and falling thirds
+  [2, 1, 0, -1, 0, 2, 1, 0, -2, -3],
+  [5, 4, 2, 4, 5, 4, 2, 1, 2, 1, -1, 0],
+  [6, 5, 4, 2, 3, 2, 1, -1, 0, 1, 2, 4, 2],
+  [4, 3, 4, 6, 4, 3, 1, 2, 1, 2, 0],
+  // Pentatonic shapes
+  [7, 6, 4, 4, 6, 4, 2, 2, 4, 2, 1, 0],
+  [4, 5, 7, 5, 4, 2, 4, 2, 0, 2, 4, 1],
+  [2, 4, 7, 4, 2, 1, -1, 1, 2, 0],
+  // Leaps of a fourth or sixth, filled in by step
+  [4, 7, 6, 4, 3, 4, 1, 2, 3, 1, 0],
+  [0, 3, 2, 1, -1, 0, 5, 4, 2, 3, 2],
+  [-1, 0, 2, 0, -1, -3, -1, 0, 4, 3, 2],
+  // Suspensions resolving down
+  [3, 3, 2, 3, 3, 2, 4, 3, 1, 2],
+  [5, 5, 4, 2, 4, 4, 3, 1, 2, 2, 1, 0],
   // Greensleeves
   [
     0, 2, 3, 4, 5, 4, 3, 1, -1, 0, 1, 2, 0, 0, -1, 0, 1, -1, -3, 0, 2, 3, 4, 5,
     4, 3, 1, -1, 0, 1, 2, 1, 0, -1, -2, -1, 0, 0,
-  ],
-  // Auld Lang Syne
-  [
-    -3, 0, 0, 0, 2, 1, 0, 1, 2, 0, 0, 2, 4, 5, 5, 4, 2, 2, 0, 1, 0, 1, 2, 0, -2,
-    -2, -3, 0,
-  ],
-  // When the Saints
-  [
-    0, 2, 3, 4, 0, 2, 3, 4, 0, 2, 3, 4, 2, 0, 2, 1, 2, 2, 1, 0, 0, 2, 4, 4, 3,
-    2, 3, 4, 2, 0, 1, 0,
   ],
   // Scarborough Fair (dorian)
   [
     0, 0, 4, 4, 1, 2, 1, 0, 2, 4, 7, 6, 4, 5, 4, 4, 4, 2, 3, 2, 1, 0, -1, 0, 1,
     0,
   ],
-  // Simple Gifts
-  [
-    -3, -3, 0, 0, 1, 2, 0, 2, 3, 4, 4, 3, 2, 1, 0, 1, 1, 1, 1, 0, 1, 2, 1, -1,
-    -3,
-  ],
-  // Sequences and arpeggios that idiomatic melodies use
-  [0, 1, 2, 3, 4, 3, 2, 1, 0],
-  [0, 2, 4, 2, 1, 3, 5, 3, 2, 4, 6, 4, 7],
-  [4, 2, 0, 2, 4, 7, 4, 5, 4, 2, 1, 0],
-  [7, 6, 5, 4, 5, 4, 3, 2, 3, 2, 1, 0],
-  [0, 4, 3, 2, 1, 2, 0, -1, 0],
 ];
 
 export const SECTION_FORMS: Record<

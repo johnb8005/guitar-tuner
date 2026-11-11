@@ -1,5 +1,6 @@
 // Instrument catalogue: synthesised voices plus multi-sampled instruments that
-// stream real recordings (Salamander Grand Piano, FluidR3 GM soundfont) on demand.
+// stream real recordings (Salamander Grand Piano, MusyngKite soundfont with
+// FluidR3 GM as a fallback) on demand.
 // Sampled instruments play their synth fallback until samples have loaded.
 
 import { midiToFreq } from "../theory";
@@ -79,7 +80,7 @@ function fluid(
   const urls: Record<number, string> = {};
   for (let m = low; m <= high; m += step) {
     urls[m] =
-      `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/${instrument}-mp3/${NOTE_FLAT[m % 12]}${octave(m)}.mp3`;
+      `https://gleitz.github.io/midi-js-soundfonts/MusyngKite/${instrument}-mp3/${NOTE_FLAT[m % 12]}${octave(m)}.mp3`;
   }
   return urls;
 }
@@ -500,14 +501,22 @@ export function loadInstrument(
   const b = bank;
   b.promise = Promise.all(
     entries.map(async ([midi, url]) => {
+      // MusyngKite is the richer recording; FluidR3 covers any gaps.
+      const sources = [url];
+      if (url.includes("/MusyngKite/"))
+        sources.push(url.replace("/MusyngKite/", "/FluidR3_GM/"));
       try {
-        const res = await fetch(url, { mode: "cors" });
-        if (!res.ok) throw new Error(`${res.status}`);
-        const data = await res.arrayBuffer();
-        const buf = await ctx.decodeAudioData(data);
-        b.buffers.set(Number(midi), buf);
-      } catch {
-        /* missing sample: neighbours will cover it */
+        for (const src of sources) {
+          try {
+            const res = await fetch(src, { mode: "cors" });
+            if (!res.ok) throw new Error(`${res.status}`);
+            const data = await res.arrayBuffer();
+            b.buffers.set(Number(midi), await ctx.decodeAudioData(data));
+            break;
+          } catch {
+            /* try the next source */
+          }
+        }
       } finally {
         done++;
         b.progress = done / entries.length;
@@ -576,13 +585,33 @@ function playSample(
   const start = soundStart(buffer);
   const available = (buffer.duration - start) / src.playbackRate.value;
   const noteEnd = time + Math.min(Math.max(dur, 0.05), available);
+  const stopAt = Math.min(noteEnd + s.release * 1.5, time + available);
+  // Players lean into long held notes: a gentle swell and a vibrato that
+  // blooms after the attack, instead of a flat, organ-like hold.
+  const expressive = s.sustain && noteEnd - time > 0.35;
   amp.gain.setValueAtTime(0.0001, time);
   amp.gain.linearRampToValueAtTime(peak, time + attack);
-  if (s.sustain) amp.gain.setValueAtTime(peak, noteEnd);
+  if (expressive) {
+    const top = peak * 1.1;
+    amp.gain.linearRampToValueAtTime(peak * 0.92, time + attack + 0.08);
+    amp.gain.linearRampToValueAtTime(
+      top,
+      time + Math.max(attack + 0.1, (noteEnd - time) * 0.6),
+    );
+    amp.gain.setValueAtTime(top, noteEnd);
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 4.8 + (midi % 5) * 0.18;
+    const depth = gain(ctx, 0);
+    depth.gain.setValueAtTime(0, time + 0.18);
+    depth.gain.linearRampToValueAtTime(14, time + 0.6);
+    lfo.connect(depth).connect(src.detune);
+    lfo.start(time);
+    lfo.stop(stopAt);
+  } else if (s.sustain) amp.gain.setValueAtTime(peak, noteEnd);
   amp.gain.setTargetAtTime(0.0001, noteEnd, s.release / 4);
   src.connect(tone).connect(amp).connect(out);
   src.start(time, start);
-  src.stop(Math.min(noteEnd + s.release * 1.5, time + available));
+  src.stop(stopAt);
 }
 
 export function playNote(
